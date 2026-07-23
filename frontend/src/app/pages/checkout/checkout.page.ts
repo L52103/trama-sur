@@ -164,11 +164,20 @@ import { IconComponent } from '../../shared/icon.component';
                 <div class="field">
                   <label for="commune">Comuna</label>
 
-                  <input
+                  <select
                     id="commune"
                     formControlName="commune"
-                    autocomplete="address-level2"
                   >
+                    <option value="">Selecciona comuna</option>
+
+                    @for (commune of availableCommunes; track commune) {
+                      <option [value]="commune">{{ commune }}</option>
+                    }
+                  </select>
+
+                  @if (invalid('commune')) {
+                    <span class="error">Selecciona tu comuna.</span>
+                  }
                 </div>
 
                 <div class="field wide">
@@ -361,24 +370,35 @@ export class CheckoutPage {
   readonly submitting = signal(false);
   readonly error = signal('');
 
-  readonly regions = [
-    'Arica y Parinacota',
-    'Tarapacá',
-    'Antofagasta',
-    'Atacama',
-    'Coquimbo',
-    'Valparaíso',
-    'Metropolitana de Santiago',
-    'O’Higgins',
-    'Maule',
-    'Ñuble',
-    'Biobío',
-    'La Araucanía',
-    'Los Ríos',
-    'Los Lagos',
-    'Aysén',
-    'Magallanes'
-  ];
+  readonly communesMap: Record<string, string[]> = {
+    'Arica y Parinacota': ['Arica', 'Camarones', 'Putre', 'General Lagos'],
+    'Tarapacá': ['Iquique', 'Alto Hospicio', 'Pozo Almonte', 'Camiña', 'Colchane', 'Huara', 'Pica'],
+    'Antofagasta': ['Antofagasta', 'Mejillones', 'Sierra Gorda', 'Taltal', 'Calama', 'Ollagüe', 'San Pedro de Atacama', 'Tocopilla', 'María Elena'],
+    'Atacama': ['Copiapó', 'Caldera', 'Tierra Amarilla', 'Chañaral', 'Diego de Almagro', 'Vallenar', 'Alto del Carmen', 'Freirina', 'Huasco'],
+    'Coquimbo': ['La Serena', 'Coquimbo', 'Andacollo', 'La Higuera', 'Paiguano', 'Vicuña', 'Illapel', 'Canela', 'Los Vilos', 'Salamanca', 'Ovalle', 'Combarbalá', 'Monte Patria', 'Punitaqui', 'Río Hurtado'],
+    'Valparaíso': ['Valparaíso', 'Viña del Mar', 'Concón', 'Quilpué', 'Villa Alemana', 'Quillota', 'La Calera', 'Limache', 'Olmué', 'San Antonio', 'Los Andes', 'San Felipe', 'Isla de Pascua', 'Puchuncaví', 'Quintero', 'Casablanca'],
+    'Metropolitana de Santiago': ['Santiago', 'Cerrillos', 'Cerro Navia', 'Conchalí', 'El Bosque', 'Estación Central', 'Huechuraba', 'Independencia', 'La Cisterna', 'La Florida', 'La Granja', 'La Pintana', 'La Reina', 'Las Condes', 'Lo Barnechea', 'Lo Espejo', 'Lo Prado', 'Macul', 'Maipú', 'Ñuñoa', 'Pedro Aguirre Cerda', 'Peñalolén', 'Providencia', 'Pudahuel', 'Quilicura', 'Quinta Normal', 'Recoleta', 'Renca', 'San Joaquín', 'San Miguel', 'San Ramón', 'Vitacura', 'Puente Alto', 'Pirque', 'San José de Maipo', 'Colina', 'Lampa', 'Tiltil', 'San Bernardo', 'Buin', 'Calera de Tango', 'Paine', 'Melipilla', 'Talagante', 'Padre Hurtado', 'Peñaflor'],
+    'O’Higgins': ['Rancagua', 'Machalí', 'Graneros', 'Rengo', 'San Fernando', 'Pichilemu', 'Chimbarongo', 'Santa Cruz', 'Doñihue', 'Requínoa'],
+    'Maule': ['Talca', 'Curicó', 'Linares', 'Constitución', 'Cauquenes', 'Molina', 'San Javier', 'Parral', 'Longaví'],
+    'Ñuble': ['Chillán', 'Chillán Viejo', 'San Carlos', 'Bulnes', 'Coelemu', 'Yungay', 'Quirihue'],
+    'Biobío': ['Concepción', 'Talcahuano', 'San Pedro de la Paz', 'Chiguayante', 'Los Ángeles', 'Coronel', 'Lota', 'Hualpén', 'Tomé', 'Penco', 'Nacimiento', 'Cabrero'],
+    'La Araucanía': ['Temuco', 'Padre Las Casas', 'Villarrica', 'Pucón', 'Angol', 'Victoria', 'Lautaro', 'Nueva Imperial', 'Collipulli'],
+    'Los Ríos': ['Valdivia', 'La Unión', 'Río Bueno', 'Panguipulli', 'Paillaco', 'Mariquina', 'Futrono', 'Los Lagos'],
+    'Los Lagos': ['Puerto Montt', 'Puerto Varas', 'Osorno', 'Castro', 'Ancud', 'Quellón', 'Frutillar', 'Calbuco', 'Llanquihue'],
+    'Aysén': ['Coyhaique', 'Puerto Aysén', 'Chile Chico', 'Cochrane'],
+    'Magallanes': ['Punta Arenas', 'Puerto Natales', 'Porvenir', 'Cabo de Hornos']
+  };
+
+  readonly regions = Object.keys(this.communesMap);
+
+  get availableCommunes(): string[] {
+    const selectedRegion = this.form?.controls.region.value;
+    if (selectedRegion && this.communesMap[selectedRegion]) {
+      return this.communesMap[selectedRegion];
+    }
+    // Return all comunas flattened if no region selected yet
+    return Object.values(this.communesMap).flat().sort();
+  }
 
   readonly pendingOrderId = signal(
     sessionStorage.getItem('trama_pending_order') ?? ''
@@ -438,6 +458,12 @@ export class CheckoutPage {
     ],
     marketingConsent: [false]
   });
+
+  constructor() {
+    this.form.controls.region.valueChanges.subscribe(() => {
+      this.form.controls.commune.setValue('');
+    });
+  }
 
   invalid(name: keyof typeof this.form.controls): boolean {
     const control = this.form.controls[name];

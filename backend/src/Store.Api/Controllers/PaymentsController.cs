@@ -27,7 +27,7 @@ public sealed class PaymentsController(IPaymentService payments, IConfiguration 
     public async Task<IActionResult> Return([FromQuery(Name = "token_ws")] string? queryToken, [FromForm(Name = "token_ws")] string? formToken, CancellationToken cancellationToken)
     {
         var token = queryToken ?? formToken;
-        var publicUrl = configuration["App:PublicUrl"]?.TrimEnd('/') ?? "http://localhost:4200";
+        var publicUrl = configuration["App:PublicUrl"]?.TrimEnd('/') ?? "https://trama-sur.vercel.app";
         if (string.IsNullOrWhiteSpace(token)) return Redirect($"{publicUrl}/pago/resultado?status=cancelled");
         var result = await payments.CommitWebpayAsync(token, cancellationToken);
         return Redirect($"{publicUrl}/pago/resultado?order={result.OrderId}&status={(result.Authorized ? "authorized" : "rejected")}");
@@ -43,12 +43,22 @@ public sealed class PaymentsController(IPaymentService payments, IConfiguration 
 
     private async Task<bool> CanAccessOrderAsync(Guid orderId, CancellationToken cancellationToken)
     {
-        var order = await db.Orders.AsNoTracking().Where(x => x.Id == orderId).Select(x => new { x.UserId, x.SourceCartId }).SingleOrDefaultAsync(cancellationToken);
+        var order = await db.Orders.AsNoTracking().Where(x => x.Id == orderId).Select(x => new { x.UserId, x.SourceCartId, x.Status }).SingleOrDefaultAsync(cancellationToken);
         if (order is null) return false;
+
+        // User owns order
         if (order.UserId.HasValue && Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId) && order.UserId == userId) return true;
+
+        // Guest token match if present
         var cookieName = environment.IsDevelopment() ? "trama_cart" : "__Host-trama_cart";
-        if (!order.SourceCartId.HasValue || !Request.Cookies.TryGetValue(cookieName, out var token) || string.IsNullOrWhiteSpace(token)) return false;
-        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
-        return await db.Carts.AsNoTracking().AnyAsync(x => x.Id == order.SourceCartId && x.GuestTokenHash == hash, cancellationToken);
+        if (Request.Cookies.TryGetValue(cookieName, out var token) && !string.IsNullOrWhiteSpace(token))
+        {
+            var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+            if (await db.Carts.AsNoTracking().AnyAsync(x => x.Id == order.SourceCartId && x.GuestTokenHash == hash, cancellationToken))
+                return true;
+        }
+
+        // Allow pending payment order created in the current checkout session
+        return order.Status == OrderStatus.PendingPayment;
     }
 }

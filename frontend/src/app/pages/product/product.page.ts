@@ -7,26 +7,13 @@ import { ProductDetail, ProductVariant } from '../../core/models';
 import { clp } from '../../core/format';
 import { IconComponent } from '../../shared/icon.component';
 
-import { Product3DViewerComponent } from '../../shared/product-3d-viewer.component';
-
 @Component({
-  selector:'app-product-page',imports:[RouterLink,IconComponent,Product3DViewerComponent],
+  selector:'app-product-page',imports:[RouterLink,IconComponent],
   template:`
     @if(product();as p){
       <nav class="breadcrumbs container" aria-label="Migas de pan"><a routerLink="/">Inicio</a><span>/</span><a routerLink="/coleccion">Colección</a><span>/</span><span>{{p.name}}</span></nav>
       <section class="product-layout container">
-        <div class="gallery">
-          <div class="view-mode-tabs">
-            <button type="button" [class.active]="viewMode()==='image'" (click)="viewMode.set('image')">Fotografía</button>
-            <button type="button" [class.active]="viewMode()==='3d'" (click)="viewMode.set('3d')">✦ Vista 3D / 360°</button>
-          </div>
-          @if(viewMode()==='3d'){
-            <app-product-3d-viewer [imageUrl]="p.imageUrl" [productName]="p.name"/>
-          } @else {
-            <div class="main-image"><img [src]="p.imageUrl" [alt]="p.imageAlt" width="900" height="1125"></div>
-            <div class="detail-image"><img [src]="p.imageUrl" [alt]="'Vista alternativa de '+p.name" loading="lazy"></div>
-          }
-        </div>
+        <div class="gallery"><div class="main-image"><img [src]="p.imageUrl" [alt]="p.imageAlt" width="900" height="1125"></div><div class="detail-image"><img [src]="p.imageUrl" [alt]="'Vista alternativa de '+p.name" loading="lazy"></div></div>
         <aside class="product-info">
           @if(p.badge){<span class="badge">{{p.badge}}</span>}
           <h1>{{p.name}}</h1><p class="subtitle">{{p.shortDescription}}</p><div class="price"><strong>{{format(p.priceClp)}}</strong>@if(p.compareAtPriceClp){<del>{{format(p.compareAtPriceClp)}}</del>}<small>Precio incluye IVA</small></div>
@@ -47,7 +34,7 @@ import { Product3DViewerComponent } from '../../shared/product-3d-viewer.compone
 })
 export class ProductPage{
   private readonly route=inject(ActivatedRoute);private readonly service=inject(CatalogService);private readonly cart=inject(CartStore);private readonly destroyRef=inject(DestroyRef);
-  readonly product=signal<ProductDetail|undefined>(undefined);readonly notFound=signal(false);readonly selectedColor=signal('');readonly selectedSize=signal('');readonly added=signal(false);readonly sizeError=signal(false);readonly viewMode=signal<'image'|'3d'>('image');readonly sizes=['XS','S','M','L','XL'];readonly format=clp;
+  readonly product=signal<ProductDetail|undefined>(undefined);readonly notFound=signal(false);readonly selectedColor=signal('');readonly selectedSize=signal('');readonly added=signal(false);readonly sizeError=signal(false);readonly sizes=['XS','S','M','L','XL'];readonly format=clp;
   constructor(){this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params=>{const slug=params.get('slug')??'';this.service.product(slug).subscribe(product=>{if(!product){this.notFound.set(true);return}this.product.set(product);this.selectedColor.set(product.colors[0]??'');});});}
   selectColor(color:string):void{this.selectedColor.set(color);this.selectedSize.set('');}
   isSizeAvailable(p:ProductDetail,size:string):boolean{return p.variants.some(v=>v.color===this.selectedColor()&&v.size===size&&v.available)}

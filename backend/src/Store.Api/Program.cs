@@ -15,6 +15,7 @@ using Store.Infrastructure;
 using Store.Infrastructure.Identity;
 using Store.Infrastructure.Persistence;
 
+var builder = WebApplication.CreateBuilder(args);
 if (builder.Environment.IsProduction()) ValidateProductionConfiguration(builder.Configuration);
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)

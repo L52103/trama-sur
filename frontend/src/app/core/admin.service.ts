@@ -7,6 +7,7 @@ export interface AdminOrder { id:string;number:string;customerEmail:string;statu
 export interface AdminInventory { id:string;warehouseId:string;variantId:string;sku:string;color:string;size:string;onHand:number;reserved:number;available:number;lowStockThreshold:number }
 export interface AdminCategory { id:string;name:string;slug:string;description:string|null;displayOrder:number;isVisible:boolean }
 export interface AdminCollection { id:string;name:string;slug:string;description:string|null;displayOrder:number;isVisible:boolean }
+export interface AdminAnalytics { totalProducts:number;lowStockCount:number;lowStockItems:Array<{id:string;productName:string;sku:string;color:string;size:string;available:number;lowStockThreshold:number}>;totalOrders:number;totalRevenueClp:number;averageOrderValueClp:number;audienceBreakdown:Array<{audience:string;count:number}> }
 
 export interface CreateAdminProduct {
   name:string;slug:string;categoryId:string;shortDescription:string;description:string;materials:string;careInstructions:string;audience:string;basePriceClp:number;compareAtPriceClp:number|null;metaTitle:string;metaDescription:string;imageUrl:string;imageAlt:string;
@@ -22,6 +23,7 @@ export class AdminService{
   inventory():Observable<AdminInventory[]>{return this.http.get<AdminInventory[]>(`${this.api}/inventory`)}
   categories():Observable<AdminCategory[]>{return this.http.get<AdminCategory[]>(`${this.api}/categories`)}
   collections():Observable<AdminCollection[]>{return this.http.get<AdminCollection[]>(`${this.api}/collections`)}
+  analytics():Observable<AdminAnalytics>{return this.http.get<AdminAnalytics>(`${this.api}/analytics`)}
   getProduct(id:string):Observable<any>{return this.http.get<any>(`${this.api}/products/${id}`)}
   createCategory(request:{name:string;slug:string;description:string;displayOrder:number;isVisible:boolean}):Observable<{id:string;name:string}>{return this.http.post<{id:string;name:string}>(`${this.api}/categories`,request)}
   createProduct(request:CreateAdminProduct):Observable<{id:string;name:string;status:string}>{return this.http.post<{id:string;name:string;status:string}>(`${this.api}/products`,request)}

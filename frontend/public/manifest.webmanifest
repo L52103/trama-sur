@@ -1,0 +1,17 @@
+{
+  "name": "TRAMA SUR — Ropa Funcional",
+  "short_name": "TRAMA SUR",
+  "description": "Ropa funcional y minimalista para el clima y movimiento diario en Chile.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#151515",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

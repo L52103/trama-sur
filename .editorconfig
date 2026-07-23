@@ -1,0 +1,14 @@
+root = true
+
+[*.cs]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+
+[backend/src/Store.Infrastructure/Persistence/Migrations/*.cs]
+# EF Core generates constant string arrays for index definitions.
+dotnet_diagnostic.CA1861.severity = none
+
+[backend/tests/**/*.cs]
+# Behavior-style test names use underscores to keep scenarios readable.
+dotnet_diagnostic.CA1707.severity = none

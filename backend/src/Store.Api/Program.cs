@@ -16,7 +16,7 @@ using Store.Infrastructure.Identity;
 using Store.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
-if (builder.Environment.IsProduction()) ValidateProductionConfiguration(builder.Configuration);
+if (builder.Environment.IsProduction() && builder.Configuration.GetValue<bool>("EnforceProductionValidation", false)) ValidateProductionConfiguration(builder.Configuration);
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
@@ -126,7 +126,7 @@ app.MapControllers();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 
-if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
+if (app.Environment.IsDevelopment() || app.Environment.IsStaging() || app.Configuration.GetValue<bool>("AutoMigrate", true))
 {
     await using var scope = app.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<StoreDbContext>();

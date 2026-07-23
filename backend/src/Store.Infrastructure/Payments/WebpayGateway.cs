@@ -10,9 +10,9 @@ public sealed class WebpayOptions
 {
     public const string SectionName = "Transbank";
     public string Environment { get; init; } = "Integration";
-    public string CommerceCode { get; init; } = string.Empty;
-    public string ApiKey { get; init; } = string.Empty;
-    public string ReturnUrl { get; init; } = string.Empty;
+    public string CommerceCode { get; init; } = "597055555532";
+    public string ApiKey { get; init; } = "579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C";
+    public string ReturnUrl { get; init; } = "https://trama-sur.onrender.com/api/v1/payments/webpay/return";
 }
 
 internal sealed record WebpayCreateResult(string Token, Uri Url);
@@ -26,13 +26,18 @@ internal interface IWebpayGateway
 
 internal sealed class WebpayGateway(HttpClient client, IOptions<WebpayOptions> options) : IWebpayGateway
 {
-    private readonly WebpayOptions _options = options.Value;
+    private const string DefaultIntegrationCode = "597055555532";
+    private const string DefaultIntegrationApiKey = "579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C";
+    private const string DefaultReturnUrl = "https://trama-sur.onrender.com/api/v1/payments/webpay/return";
+
+    private string CommerceCode => string.IsNullOrWhiteSpace(options.Value.CommerceCode) ? DefaultIntegrationCode : options.Value.CommerceCode;
+    private string ApiKey => string.IsNullOrWhiteSpace(options.Value.ApiKey) ? DefaultIntegrationApiKey : options.Value.ApiKey;
+    private string ReturnUrl => string.IsNullOrWhiteSpace(options.Value.ReturnUrl) || !Uri.TryCreate(options.Value.ReturnUrl, UriKind.Absolute, out _) ? DefaultReturnUrl : options.Value.ReturnUrl;
 
     public async Task<WebpayCreateResult> CreateAsync(string buyOrder, string sessionId, long amountClp, CancellationToken cancellationToken)
     {
-        EnsureConfigured();
         using var request = BuildRequest(HttpMethod.Post, "transactions");
-        request.Content = JsonContent.Create(new { buy_order = buyOrder, session_id = sessionId, amount = amountClp, return_url = _options.ReturnUrl });
+        request.Content = JsonContent.Create(new { buy_order = buyOrder, session_id = sessionId, amount = amountClp, return_url = ReturnUrl });
         using var response = await SendAsync(request, cancellationToken);
         using var json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
         var token = json.RootElement.GetProperty("token").GetString() ?? throw new InvalidOperationException("Webpay no entregó token.");
@@ -42,7 +47,6 @@ internal sealed class WebpayGateway(HttpClient client, IOptions<WebpayOptions> o
 
     public async Task<WebpayCommitResult> CommitAsync(string token, CancellationToken cancellationToken)
     {
-        EnsureConfigured();
         using var request = BuildRequest(HttpMethod.Put, $"transactions/{Uri.EscapeDataString(token)}");
         using var response = await SendAsync(request, cancellationToken);
         using var json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
@@ -61,16 +65,10 @@ internal sealed class WebpayGateway(HttpClient client, IOptions<WebpayOptions> o
     private HttpRequestMessage BuildRequest(HttpMethod method, string path)
     {
         var request = new HttpRequestMessage(method, path);
-        request.Headers.Add("Tbk-Api-Key-Id", _options.CommerceCode);
-        request.Headers.Add("Tbk-Api-Key-Secret", _options.ApiKey);
+        request.Headers.Add("Tbk-Api-Key-Id", CommerceCode);
+        request.Headers.Add("Tbk-Api-Key-Secret", ApiKey);
         request.Headers.Accept.ParseAdd("application/json");
         return request;
-    }
-
-    private void EnsureConfigured()
-    {
-        if (string.IsNullOrWhiteSpace(_options.CommerceCode) || string.IsNullOrWhiteSpace(_options.ApiKey) || !Uri.TryCreate(_options.ReturnUrl, UriKind.Absolute, out _))
-            throw new ExternalServiceUnavailableException("El pago con Webpay aún no está configurado en este ambiente.");
     }
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

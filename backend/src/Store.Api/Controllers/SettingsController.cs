@@ -6,7 +6,7 @@ namespace Store.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/settings")]
-public class SettingsController : ControllerBase
+public sealed class SettingsController : ControllerBase
 {
     private readonly StoreDbContext _db;
 

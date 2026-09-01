@@ -1,6 +1,6 @@
-# TRAMA SUR - ecommerce de ropa funcional
+# TRAMA SUR - ecommerce de ropa de calidad
 
-Monorepo de una tienda chilena de ropa funcional. La identidad **TRAMA SUR** es provisional: antes de producción se debe validar marca, dominio y razón social.
+Monorepo de una tienda chilena de ropa de calidad y diseño atemporal. La identidad **TRAMA SUR** es provisional: antes de producción se debe validar marca, dominio y razón social.
 
 ## Arquitectura
 

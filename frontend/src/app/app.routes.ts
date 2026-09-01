@@ -12,7 +12,7 @@ export function categoryMatcher(url: UrlSegment[]) {
 }
 
 export const routes: Routes = [
-  { path: '', loadComponent: () => import('./pages/home/home.page').then(m => m.HomePage), title: 'Trama Sur — Ropa funcional para moverse' },
+  { path: '', loadComponent: () => import('./pages/home/home.page').then(m => m.HomePage), title: 'Trama Sur — Ropa de calidad y diseño atemporal' },
   { path: 'carrito', loadComponent: () => import('./pages/cart/cart.page').then(m => m.CartPage), title: 'Carrito — Trama Sur' },
   { path: 'checkout', loadComponent: () => import('./pages/checkout/checkout.page').then(m => m.CheckoutPage), title: 'Pago seguro — Trama Sur' },
   { path: 'pago/resultado', loadComponent: () => import('./pages/payment-result/payment-result.page').then(m => m.PaymentResultPage), title: 'Resultado del pago — Trama Sur' },

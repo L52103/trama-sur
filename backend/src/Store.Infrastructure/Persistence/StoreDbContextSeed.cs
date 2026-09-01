@@ -53,7 +53,7 @@ public static class StoreDbContextSeed
             ("Short Ruta", "short-ruta", 2, 44990, "Short elástico y liviano con bolsillos seguros.", ["Negro", "Arcilla"], "4 vías"),
             ("Pantalón Travel Light", "pantalon-travel-light", 3, 89990, "Pantalón compacto, resistente a arrugas y de secado rápido.", ["Azul noche", "Piedra"], "Rápido"),
             ("Sobrecamisa Tránsito", "sobrecamisa-transito", 3, 84990, "Sobrecamisa técnica con bolsillos discretos para viajar.", ["Bosque", "Arena"], "Ligero"),
-            ("Mochila Viaje 28L", "mochila-viaje-28l", 3, 79990, "Mochila funcional con apertura completa y funda para notebook.", ["Negro"], "28 L"),
+            ("Mochila Viaje 28L", "mochila-viaje-28l", 3, 79990, "Mochila versátil de alta durabilidad con apertura completa y funda para notebook.", ["Negro"], "28 L"),
             ("Chaleco Urbano", "chaleco-urbano", 4, 69990, "Capa utilitaria liviana para combinar durante todo el año.", ["Grafito", "Bosque"], "Ligero"),
             ("Abrigo Modular", "abrigo-modular", 4, 179990, "Abrigo sobrio con interior desmontable para clima variable.", ["Negro", "Piedra"], "Modular"),
             ("Camisa Técnica", "camisa-tecnica", 6, 59990, "Camisa respirable de apariencia limpia para jornadas activas.", ["Blanco", "Azul cielo"], "Rápido"),
@@ -100,7 +100,7 @@ public static class StoreDbContextSeed
             var data = catalog[productIndex];
             var product = new Product(data.Name, data.Slug, categories[data.Category].Id, data.Description, data.Price);
             var audience = (productIndex % 2 == 0) ? "Hombre" : "Mujer";
-            product.SetDetails($"{data.Description} Diseñada en Chile como una prenda funcional, versátil y fácil de combinar.", "Composición técnica declarada en la etiqueta de cada variante. Proveedor pendiente de confirmación comercial.", "Lavar con colores similares y seguir la etiqueta. No usar suavizante en membranas impermeables.", audience, $"{data.Name} | TRAMA SUR", $"Compra {data.Name.ToLowerInvariant()} con despacho configurable en Chile. Precio en CLP e IVA incluido.");
+            product.SetDetails($"{data.Description} Diseñada en Chile con foco en la calidad de confección, durabilidad y estilo atemporal.", "Composición textil de alta calidad declarada en la etiqueta de cada variante. Proveedor pendiente de confirmación comercial.", "Lavar con colores similares y seguir las instrucciones de cuidado en etiqueta.", audience, $"{data.Name} | TRAMA SUR", $"Compra {data.Name.ToLowerInvariant()} con despacho configurable en Chile. Precio en CLP e IVA incluido.");
             foreach (var color in data.Colors)
             {
                 foreach (var size in new[] { "XS", "S", "M", "L", "XL" })

@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Catálogo público solo para lectura de productos activos (Plan Spark)
+    match /productos/{productoId} {
+      allow read: if resource.data.activo == true;
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // 2. Detalle extendido de productos
+    match /producto_detalles/{productoId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // 3. Clientes: Acceso exclusivo a sus propios datos
+    match /usuarios/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 4. Órdenes: Creación permitida bajo validación de datos
+    match /ordenes/{ordenId} {
+      allow create: if request.resource.data.total > 0;
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.clienteId ||
+        request.auth.token.admin == true
+      );
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // 5. Transacciones y Pasarelas de Pago
+    match /pagos/{pagoId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.clienteId ||
+        request.auth.token.admin == true
+      );
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // 6. Configuración de Tienda
+    match /configuracion/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+  }
+}

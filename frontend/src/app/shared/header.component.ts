@@ -17,7 +17,6 @@ import { IconComponent } from './icon.component';
         <a routerLink="/hombre" routerLinkActive="active">Hombre</a>
         <a routerLink="/unisex" routerLinkActive="active">Unisex</a>
         <a routerLink="/coleccion" [queryParams]="{sort:'newest'}">Novedades</a>
-        <a routerLink="/coleccion" class="function-link">Funcional</a>
       </nav>
       <div class="header-actions">
         <a class="icon-button desktop-search" routerLink="/coleccion" aria-label="Buscar"><app-icon name="search"/></a>

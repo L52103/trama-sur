@@ -9,7 +9,7 @@ export interface HomeContent{
   story:{eyebrow:string;heading:string;description:string};
 }
 
-export const DEFAULT_HOME_CONTENT:HomeContent={announcement:'Despacho gratis desde $79.990 · Cambios simples por 30 días',hero:{eyebrow:'Colección invierno 2026',title:'Hecha para',accent:'seguir tu ritmo.',description:'Ropa funcional para días que no caben en una sola categoría.',ctaLabel:'Ver colección'},featured:{eyebrow:'Selección Trama',heading:'Esenciales funcionales'},story:{eyebrow:'Diseño con propósito',heading:'Función que se ve bien. Calidad que se siente.',description:'Elegimos tejidos, cortes y detalles que resuelven fricción real: cambios de clima, trayectos largos y prendas que deben durar.'}};
+export const DEFAULT_HOME_CONTENT:HomeContent={announcement:'Despacho gratis desde $79.990 · Cambios simples por 30 días',hero:{eyebrow:'Colección invierno 2026',title:'Hecha con',accent:'máxima calidad.',description:'Ropa de calidad superior, confección cuidada y materiales nobles para el día a día.',ctaLabel:'Ver colección'},featured:{eyebrow:'Selección Trama',heading:'Esenciales de calidad'},story:{eyebrow:'Confección y detalle',heading:'Materiales nobles. Calidad que se siente.',description:'Seleccionamos los mejores tejidos, cortes precisos y costuras reforzadas para crear prendas duraderas, cómodas y atemporales.'}};
 
 @Injectable({providedIn:'root'})
 export class ContentService{

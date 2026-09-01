@@ -80,12 +80,54 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
-        var isStrict = context.Request.Path.StartsWithSegments("/api/v1/auth") || context.Request.Path.StartsWithSegments("/api/v1/payments") || context.Request.Path.StartsWithSegments("/api/v1/returns");
-        var partition = (context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown") + (isStrict ? "-strict" : "-normal");
-        return RateLimitPartition.GetTokenBucketLimiter(partition, _ => new TokenBucketRateLimiterOptions
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
+
+        // 1. Password Reset: máx 3 solicitudes por hora
+        if (path.Contains("forgot-password", StringComparison.OrdinalIgnoreCase) || path.Contains("reset-password", StringComparison.OrdinalIgnoreCase))
         {
-            TokenLimit = isStrict ? 10 : 120,
-            TokensPerPeriod = isStrict ? 10 : 120,
+            return RateLimitPartition.GetTokenBucketLimiter($"{ip}-pwd-reset", _ => new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = 3,
+                TokensPerPeriod = 3,
+                ReplenishmentPeriod = TimeSpan.FromHours(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+        }
+
+        // 2. Inicio de sesión y registro: máx 5 intentos por minuto (defensa contra fuerza bruta)
+        if (path.StartsWith("/api/v1/auth/login", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/v1/auth/register", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetTokenBucketLimiter($"{ip}-auth", _ => new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = 5,
+                TokensPerPeriod = 5,
+                ReplenishmentPeriod = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+        }
+
+        // 3. Creación de intentos de pago: máx 10 por hora
+        if (path.StartsWith("/api/v1/payments", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/v1/checkout/create-order", StringComparison.OrdinalIgnoreCase))
+        {
+            var userKey = context.User.Identity?.Name ?? ip;
+            return RateLimitPartition.GetTokenBucketLimiter($"{userKey}-payment-init", _ => new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = 10,
+                TokensPerPeriod = 10,
+                ReplenishmentPeriod = TimeSpan.FromHours(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+        }
+
+        // 4. Rate Limiting general para el resto de la API: 120 por minuto
+        return RateLimitPartition.GetTokenBucketLimiter($"{ip}-general", _ => new TokenBucketRateLimiterOptions
+        {
+            TokenLimit = 120,
+            TokensPerPeriod = 120,
             ReplenishmentPeriod = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
             AutoReplenishment = true
@@ -101,8 +143,10 @@ app.Use(async (context, next) =>
     context.TraceIdentifier = context.Request.Headers.TryGetValue("X-Request-ID", out var requestId) && requestId.Count == 1 && requestId[0] is { Length: > 0 and <= 100 } value ? value : Guid.CreateVersion7().ToString("N");
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+    context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(self)";
     context.Response.Headers["Cross-Origin-Opener-Policy"] = "same-origin";
     context.Response.Headers["X-Request-ID"] = context.TraceIdentifier;
     await next();

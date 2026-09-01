@@ -1,12 +1,12 @@
 import { Category, ProductCard, ProductDetail } from './models';
 
 export const CATEGORIES: Category[] = [
-  { id: '01', name: 'Mujer', slug: 'mujer', description: 'Capas versátiles para todos los ritmos.' },
-  { id: '02', name: 'Hombre', slug: 'hombre', description: 'Diseño técnico para la vida diaria.' },
-  { id: '03', name: 'Unisex', slug: 'unisex', description: 'Esenciales sin etiquetas.' },
-  { id: '04', name: 'Abrigos', slug: 'abrigos', description: 'Protección liviana para el clima chileno.' },
-  { id: '05', name: 'Tops', slug: 'tops', description: 'Primeras capas respirables.' },
-  { id: '06', name: 'Pantalones', slug: 'pantalones', description: 'Movimiento y durabilidad.' },
+  { id: '01', name: 'Mujer', slug: 'mujer', description: 'Prendas atemporales y acabados de calidad superior.' },
+  { id: '02', name: 'Hombre', slug: 'hombre', description: 'Cortes limpios y confección de alto estándar.' },
+  { id: '03', name: 'Unisex', slug: 'unisex', description: 'Esenciales duraderos sin etiquetas.' },
+  { id: '04', name: 'Abrigos', slug: 'abrigos', description: 'Estructura, calidez y telas de primera calidad.' },
+  { id: '05', name: 'Tops', slug: 'tops', description: 'Tejidos nobles y suavidad excepcional.' },
+  { id: '06', name: 'Pantalones', slug: 'pantalones', description: 'Calce perfecto y durabilidad prolongada.' },
 ];
 
 const imageByType: Record<string, string> = {
@@ -78,18 +78,18 @@ export function demoProductDetail(slug: string): ProductDetail | undefined {
     ...product,
     basePriceClp: product.priceClp,
     categoryInfo,
-    description: `${product.name} combina una silueta limpia con prestaciones reales para desplazarte, trabajar y viajar. Cada detalle fue simplificado para entregar comodidad duradera sin una estética excesivamente técnica.`,
+    description: `${product.name} combina una silueta limpia con acabados de confección superior pensados para durar. Cada detalle fue cuidado minuciosamente para entregar máxima comodidad, elegancia y durabilidad en tu día a día.`,
     images: [
       { url: product.imageUrl, altText: product.imageAlt, isPrimary: true, width: 1365, height: 1706 },
       { url: product.imageUrl, altText: `Detalle de material de ${product.name}`, isPrimary: false, width: 1365, height: 1706 },
     ],
     variants,
     functionalAttributes: [
-      { name: 'Protección', value: product.features[0] },
-      { name: 'Rendimiento', value: product.features[1] },
+      { name: 'Confección', value: product.features[0] },
+      { name: 'Detalle', value: product.features[1] },
       { name: 'Origen', value: 'Diseñada en Chile' },
     ],
-    materials: 'Material principal seleccionado por durabilidad y fácil cuidado. Componentes libres de PFC añadidos.',
+    materials: 'Material principal seleccionado rigurosamente por su suavidad, durabilidad y nobleza textil.',
     careInstructions: 'Lavar a máquina con agua fría, ciclo suave. No usar blanqueador. Secar a la sombra.',
   };
 }

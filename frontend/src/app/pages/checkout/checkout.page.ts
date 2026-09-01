@@ -14,6 +14,24 @@ import {
 import { ShippingAddress } from '../../core/models';
 import { IconComponent } from '../../shared/icon.component';
 
+function chileanRutValidator(control: import('@angular/forms').AbstractControl) {
+  const value = control.value;
+  if (!value) return null;
+  const clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (clean.length < 8 || clean.length > 9) return { invalidRut: true };
+  const body = clean.slice(0, -1);
+  const dv = clean.slice(-1);
+  let sum = 0;
+  let multiplier = 2;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += parseInt(body[i], 10) * multiplier;
+    multiplier = multiplier === 7 ? 2 : multiplier + 1;
+  }
+  const expectedDv = 11 - (sum % 11);
+  const dvStr = expectedDv === 11 ? '0' : expectedDv === 10 ? 'K' : String(expectedDv);
+  return dv === dvStr ? null : { invalidRut: true };
+}
+
 @Component({
   selector: 'app-checkout-page',
   imports: [
@@ -105,6 +123,22 @@ import { IconComponent } from '../../shared/icon.component';
 
                   @if (invalid('lastName')) {
                     <span class="error">Ingresa tu apellido.</span>
+                  }
+                </div>
+
+                <div class="field">
+                  <label for="rut">RUT del comprador <small>(Para Boleta Electrónica SII)</small></label>
+
+                  <input
+                    id="rut"
+                    formControlName="rut"
+                    placeholder="12.345.678-9"
+                    autocomplete="off"
+                    (input)="formatRutInput($event)"
+                  >
+
+                  @if (invalid('rut')) {
+                    <span class="error">Ingresa un RUT chileno válido (ej. 12.345.678-9).</span>
                   }
                 </div>
 
@@ -221,7 +255,7 @@ import { IconComponent } from '../../shared/icon.component';
                 <div>
                   <b>Webpay Plus</b>
                   <small>
-                    Crédito, débito y prepago emitidas en Chile
+                    Crédito, débito y prepago emitidas en Chile (Seguridad PCI-DSS)
                   </small>
                 </div>
 
@@ -230,7 +264,7 @@ import { IconComponent } from '../../shared/icon.component';
 
               <p class="security-note">
                 Serás redirigido al entorno seguro de Transbank. Trama Sur
-                nunca recibe ni almacena el número de tu tarjeta.
+                nunca recibe ni almacena el número de tu tarjeta ni código de seguridad.
               </p>
             </fieldset>
 
@@ -246,16 +280,16 @@ import { IconComponent } from '../../shared/icon.component';
                   routerLink="/legal/terminos"
                   target="_blank"
                 >
-                  términos y condiciones
+                  Términos y Condiciones
                 </a>,
-                la política de privacidad y confirmo que revisé el precio total
-                y despacho.
+                la <a routerLink="/legal/privacidad" target="_blank">Política de Privacidad</a> y confirmo haber revisado el precio total
+                y las condiciones de despacho.
               </span>
             </label>
 
             @if (invalid('acceptedTerms')) {
               <p class="terms-error">
-                Debes aceptar los términos para continuar.
+                Debes aceptar los términos y la política de privacidad para continuar.
               </p>
             }
 
@@ -266,7 +300,7 @@ import { IconComponent } from '../../shared/icon.component';
               >
 
               <span>
-                Quiero recibir novedades y beneficios (opcional).
+                Deseo recibir ofertas, novedades y beneficios por correo electrónico (Consentimiento revocable).
               </span>
             </label>
 
@@ -276,6 +310,10 @@ import { IconComponent } from '../../shared/icon.component';
                 <span>{{ error() }}</span>
               </div>
             }
+
+            <p class="pre-pay-consent" style="font-size: 0.8rem; color: var(--muted); margin-top: 1rem;">
+              Al pagar, aceptas nuestros <a routerLink="/legal/terminos" target="_blank">Términos y Condiciones</a> y <a routerLink="/legal/privacidad" target="_blank">Política de Privacidad</a>.
+            </p>
 
             <button
               class="button pay"
@@ -294,9 +332,7 @@ import { IconComponent } from '../../shared/icon.component';
             </button>
 
             <p class="legal-note">
-              Al finalizar recibirás la confirmación escrita del contrato por
-              correo. Tienes derecho a retracto dentro de 10 días desde que
-              recibes el producto, salvo las excepciones legales informadas.
+              Al finalizar recibirás la confirmación escrita del contrato y tu boleta electrónica por correo. Tienes derecho a retracto dentro de 10 días desde que recibes el producto y 6 meses de garantía legal (Ley N° 19.496).
             </p>
           </div>
 
@@ -327,21 +363,26 @@ import { IconComponent } from '../../shared/icon.component';
 
             <dl>
               <div>
-                <dt>Subtotal</dt>
-                <dd>{{ format(cart.subtotal()) }}</dd>
+                <dt>Subtotal productos (Neto)</dt>
+                <dd>{{ format(netAmount()) }}</dd>
+              </div>
+
+              <div>
+                <dt>IVA (19% incluido)</dt>
+                <dd>{{ format(ivaAmount()) }}</dd>
               </div>
 
               <div>
                 <dt>Despacho estándar</dt>
-                <dd>{{ cart.shipping() ? '$4.990' : 'Gratis' }}</dd>
+                <dd>{{ cart.shipping() ? format(cart.shipping()) : 'Gratis' }}</dd>
               </div>
 
               <div class="total">
-                <dt>Total</dt>
+                <dt>Total a pagar</dt>
 
                 <dd>
                   {{ format(cart.total()) }}
-                  <small>IVA incluido</small>
+                  <small>CLP · Boleta Electrónica SII</small>
                 </dd>
               </div>
             </dl>
@@ -349,8 +390,14 @@ import { IconComponent } from '../../shared/icon.component';
             <div class="delivery">
               <b>Entrega estimada</b>
               <span>
-                2–5 días hábiles después de la confirmación.
+                {{ deliveryEstimate() }} con seguimiento en línea (tracking).
               </span>
+            </div>
+
+            <div class="sii-note" style="margin-top: 1rem; padding: 0.8rem; background: var(--mist); border-radius: 6px; font-size: 0.72rem; color: var(--muted); line-height: 1.4;">
+              <span>✓ Emisión automática de Boleta Electrónica ante el SII.</span><br>
+              <span>✓ 6 meses de Garantía Legal (cambio, reparación o devolución).</span><br>
+              <span>✓ 10 días de Derecho a Retracto en compras online.</span>
             </div>
           </aside>
         </form>
@@ -423,6 +470,13 @@ export class CheckoutPage {
         Validators.maxLength(80)
       ]
     ],
+    rut: [
+      '',
+      [
+        Validators.required,
+        chileanRutValidator
+      ]
+    ],
     email: [
       '',
       [
@@ -465,6 +519,37 @@ export class CheckoutPage {
     });
   }
 
+  netAmount(): number {
+    return Math.round(this.cart.subtotal() / 1.19);
+  }
+
+  ivaAmount(): number {
+    return this.cart.subtotal() - this.netAmount();
+  }
+
+  deliveryEstimate(): string {
+    const region = this.form.controls.region.value;
+    if (region === 'Metropolitana de Santiago') return '1 a 2 días hábiles';
+    if (['Aysén', 'Magallanes', 'Arica y Parinacota', 'Tarapacá', 'Antofagasta'].includes(region)) {
+      return '4 a 7 días hábiles';
+    }
+    return '2 a 4 días hábiles';
+  }
+
+  formatRutInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    let clean = input.value.replace(/[^0-9kK]/g, '').toUpperCase();
+    if (clean.length > 9) clean = clean.slice(0, 9);
+    if (clean.length > 1) {
+      const dv = clean.slice(-1);
+      let body = clean.slice(0, -1);
+      body = body.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      this.form.controls.rut.setValue(`${body}-${dv}`, { emitEvent: false });
+    } else {
+      this.form.controls.rut.setValue(clean, { emitEvent: false });
+    }
+  }
+
   invalid(name: keyof typeof this.form.controls): boolean {
     const control = this.form.controls[name];
 
@@ -475,6 +560,8 @@ export class CheckoutPage {
   }
 
   submit(): void {
+    if (this.submitting()) return;
+
     if (this.pendingOrderId()) {
       this.startPayment(this.pendingOrderId());
       return;
@@ -538,6 +625,8 @@ export class CheckoutPage {
   }
 
   retryPayment(): void {
+    if (this.submitting()) return;
+
     const orderId = this.pendingOrderId();
 
     if (orderId) {

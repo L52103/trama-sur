@@ -9,7 +9,7 @@ namespace Store.Api.Controllers;
 [ApiController]
 [Route("api/v1/admin/settings")]
 [Authorize(Policy = "CatalogWrite")] // Using an existing admin policy for settings for now
-public class AdminSettingsController : ControllerBase
+public sealed class AdminSettingsController : ControllerBase
 {
     private readonly StoreDbContext _db;
 

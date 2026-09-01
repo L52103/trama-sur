@@ -11,7 +11,7 @@ import { IconComponent } from '../../shared/icon.component';
 @Component({
   selector: 'app-catalog-page', imports: [FormsModule, ProductCardComponent, IconComponent],
   template: `
-    <section class="catalog-head container"><p class="eyebrow">Colección completa</p><h1>Prendas que trabajan contigo.</h1><p>Capas versátiles y detalles útiles, pensados para el clima y el movimiento diario.</p></section>
+    <section class="catalog-head container"><p class="eyebrow">Colección completa</p><h1>Diseño atemporal y máxima calidad.</h1><p>Prendas confeccionadas con materiales nobles y acabados de alta durabilidad.</p></section>
     <section class="catalog-tools container">
       <button class="filter-button" type="button" (click)="filtersOpen.set(!filtersOpen())"><app-icon name="plus"/> Filtros</button>
       <label class="search"><app-icon name="search"/><span class="sr-only">Buscar productos</span><input type="search" [(ngModel)]="search" (ngModelChange)="apply()" placeholder="Buscar en la colección"></label>
@@ -25,7 +25,7 @@ import { IconComponent } from '../../shared/icon.component';
         <details class="filter-section"><summary><h3>Actividad</h3></summary><ul>@for(cat of categories();track cat.id){<li><button [class.selected]="category===cat.slug" (click)="selectCategory(cat.slug)">{{cat.name}}</button></li>}</ul></details>
         <details class="filter-section" open><summary><h3>Talla</h3></summary><ul>@for(s of sizes;track s){<li><button [class.selected]="size===s" (click)="selectSize(s)">{{s}}</button></li>}</ul></details>
         <details class="filter-section"><summary><h3>Color</h3></summary><ul>@for(c of colors;track c){<li><button [class.selected]="color===c" (click)="selectColor(c)">{{c}}</button></li>}</ul></details>
-        <details class="filter-section"><summary><h3>Función</h3></summary><ul>@for(item of functions;track item.slug){<li><button [class.selected]="function===item.slug" (click)="selectFunction(item.slug)">{{item.name}}</button></li>}</ul></details>
+        <details class="filter-section"><summary><h3>Propiedades del tejido</h3></summary><ul>@for(item of functions;track item.slug){<li><button [class.selected]="function===item.slug" (click)="selectFunction(item.slug)">{{item.name}}</button></li>}</ul></details>
         <details class="filter-section"><summary><h3>Precio</h3></summary><ul>@for(p of prices;track p.label){<li><button [class.selected]="minPrice===p.min&&maxPrice===p.max" (click)="selectPrice(p.min, p.max)">{{p.label}}</button></li>}</ul></details>
       </div>
       <div class="drawer-footer">

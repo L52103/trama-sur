@@ -61,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<ICheckoutService, CheckoutService>();
         services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<Store.Infrastructure.Security.ISecurityAuditService, Store.Infrastructure.Security.SecurityAuditService>();
         services.AddHostedService<ReservationExpiryWorker>();
         services.Configure<ResendOptions>(configuration.GetSection(ResendOptions.SectionName));
         services.AddHttpClient<ITransactionalEmailSender, ResendEmailSender>(client =>

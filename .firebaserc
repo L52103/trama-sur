@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "trama-sur-qa-staging",
+    "staging": "trama-sur-qa-staging",
+    "production": "trama-sur-production"
+  }
+}

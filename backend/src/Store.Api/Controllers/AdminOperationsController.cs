@@ -139,7 +139,8 @@ public sealed class ContentController(StoreDbContext db) : ControllerBase
         var normalizedKey = key.Trim().ToLowerInvariant();
         var page = await db.ContentPages.AsNoTracking().SingleOrDefaultAsync(x => x.Key == normalizedKey, cancellationToken);
         if (page?.CurrentPublishedVersionId is null) return NotFound();
-        var version = await db.ContentPageVersions.AsNoTracking().SingleAsync(x => x.Id == page.CurrentPublishedVersionId, cancellationToken);
+        var version = await db.ContentPageVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == page.CurrentPublishedVersionId, cancellationToken);
+        if (version is null) return NotFound();
         return Content(version.ContentJson, "application/json");
     }
 }

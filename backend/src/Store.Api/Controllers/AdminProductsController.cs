@@ -168,7 +168,7 @@ public sealed class AdminProductsController(StoreDbContext db, IConfiguration co
         if (!await db.Products.AnyAsync(x => x.Id == id, cancellationToken)) throw new KeyNotFoundException();
         var normalizedSku = request.Sku.Trim().ToUpperInvariant();
         if (await db.ProductVariants.AnyAsync(x => x.Sku == normalizedSku, cancellationToken)) throw new DomainException("El SKU ya existe.");
-        var warehouse = await db.Warehouses.Where(x => x.IsActive).OrderBy(x => x.Code).FirstAsync(cancellationToken);
+        var warehouse = await db.Warehouses.Where(x => x.IsActive).OrderBy(x => x.Code).FirstOrDefaultAsync(cancellationToken) ?? throw new DomainException("No existe una bodega activa.");
         var variant = new ProductVariant(id, request.Sku, request.Color, request.Size, request.PriceClp);
         variant.Update(request.Color, request.ColorHex, request.Size, request.Cut, request.Barcode, request.PriceClp, request.WeightGrams, request.LowStockThreshold, true, DateTimeOffset.UtcNow);
         db.ProductVariants.Add(variant);

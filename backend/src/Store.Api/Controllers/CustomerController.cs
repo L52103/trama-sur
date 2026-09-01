@@ -19,7 +19,11 @@ public sealed record WishlistRequest(Guid VariantId);
 public sealed class CustomerController(StoreDbContext db, UserManager<ApplicationUser> userManager) : ControllerBase
 {
     [HttpGet("profile")]
-    public async Task<IActionResult> Profile() => Ok(await db.Users.AsNoTracking().Where(x => x.Id == UserId()).Select(x => new { x.Id, x.Email, x.FirstName, x.LastName, x.MarketingConsent, x.MarketingConsentAt, x.CreatedAt }).SingleAsync());
+    public async Task<IActionResult> Profile()
+    {
+        var user = await db.Users.AsNoTracking().Where(x => x.Id == UserId()).Select(x => new { x.Id, x.Email, x.FirstName, x.LastName, x.MarketingConsent, x.MarketingConsentAt, x.CreatedAt }).SingleOrDefaultAsync();
+        return user is null ? NotFound() : Ok(user);
+    }
 
     [HttpPut("profile")]
     public async Task<IActionResult> UpdateProfile(UpdateProfileRequest request, CancellationToken cancellationToken)

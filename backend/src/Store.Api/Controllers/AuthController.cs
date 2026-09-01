@@ -28,7 +28,8 @@ public sealed class AuthController(
     AuthTokenService tokenService,
     StoreDbContext db,
     IWebHostEnvironment environment,
-    IConfiguration configuration) : ControllerBase
+    IConfiguration configuration,
+    Store.Infrastructure.Security.ISecurityAuditService audit) : ControllerBase
 {
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request, CancellationToken cancellationToken)
@@ -48,12 +49,25 @@ public sealed class AuthController(
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request, CancellationToken cancellationToken)
     {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var user = await userManager.FindByEmailAsync(request.Email.Trim());
-        if (user is null) return Unauthorized(new { message = "Credenciales inválidas." });
+        if (user is null)
+        {
+            audit.RecordFailedLogin(ip, request.Email.Trim());
+            return Unauthorized(new { message = "Credenciales inválidas." });
+        }
         var signIn = await signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
-        if (signIn.IsLockedOut) return StatusCode(StatusCodes.Status429TooManyRequests, new { message = "Cuenta temporalmente bloqueada." });
+        if (signIn.IsLockedOut)
+        {
+            audit.RecordFailedLogin(ip, user.Email ?? request.Email.Trim());
+            return StatusCode(StatusCodes.Status429TooManyRequests, new { message = "Cuenta temporalmente bloqueada." });
+        }
         if (signIn.IsNotAllowed) return Unauthorized(new { message = "Confirma tu correo antes de ingresar." });
-        if (!signIn.Succeeded) return Unauthorized(new { message = "Credenciales inválidas." });
+        if (!signIn.Succeeded)
+        {
+            audit.RecordFailedLogin(ip, user.Email ?? request.Email.Trim());
+            return Unauthorized(new { message = "Credenciales inválidas." });
+        }
         var mfaVerified = false;
         if (user.TwoFactorEnabled)
         {
@@ -64,11 +78,13 @@ public sealed class AuthController(
             if (!mfaVerified)
             {
                 await userManager.AccessFailedAsync(user);
+                audit.RecordFailedLogin(ip, user.Email ?? request.Email.Trim());
                 return Unauthorized(new { message = "Código de autenticación inválido.", requiresTwoFactor = true });
             }
             await userManager.ResetAccessFailedCountAsync(user);
         }
         user.LastLoginAt = DateTimeOffset.UtcNow;
+        audit.RecordSuccessfulLogin(ip, user.Email ?? request.Email.Trim());
         var tokens = await tokenService.IssueAsync(user, null, cancellationToken, mfaVerified);
         SetSessionCookies(tokens);
         return Ok(ToResponse(tokens, user, await userManager.GetRolesAsync(user), mfaVerified));

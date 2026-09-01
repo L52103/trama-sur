@@ -1,7 +1,10 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
+  AbstractControl,
   FormBuilder,
   ReactiveFormsModule,
+  ValidationErrors,
   Validators
 } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -407,6 +410,7 @@ function chileanRutValidator(control: import('@angular/forms').AbstractControl) 
   styleUrl: './checkout.page.scss'
 })
 export class CheckoutPage {
+  private readonly destroyRef = inject(DestroyRef);
   readonly cart = inject(CartStore);
 
   private readonly fb = inject(FormBuilder);
@@ -514,7 +518,7 @@ export class CheckoutPage {
   });
 
   constructor() {
-    this.form.controls.region.valueChanges.subscribe(() => {
+    this.form.controls.region.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.form.controls.commune.setValue('');
     });
   }

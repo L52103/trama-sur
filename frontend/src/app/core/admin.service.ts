@@ -9,6 +9,17 @@ export interface AdminCategory { id:string;name:string;slug:string;description:s
 export interface AdminCollection { id:string;name:string;slug:string;description:string|null;displayOrder:number;isVisible:boolean }
 export interface AdminAnalytics { totalProducts:number;lowStockCount:number;lowStockItems:Array<{id:string;productName:string;sku:string;color:string;size:string;available:number;lowStockThreshold:number}>;totalOrders:number;totalRevenueClp:number;averageOrderValueClp:number;audienceBreakdown:Array<{audience:string;count:number}> }
 
+export interface OrderItemDetail { id:string;productName:string;sku:string;size:string;color:string;quantity:number;unitPriceClp:number;totalPriceClp:number }
+export interface OrderHistoryItem { id:string;fromStatus:string;toStatus:string;reason:string;createdAt:string }
+export interface OrderAddressDetail { streetAddress:string;apartmentOrSuite?:string;commune:string;region:string;postalCode?:string;receiverName:string;receiverPhone:string }
+export interface AdminOrderDetail {
+  order: {
+    id:string;number:string;customerEmail:string;customerFirstName?:string;customerLastName?:string;customerPhone?:string;status:string;totalClp:number;subtotalClp:number;shippingClp:number;discountClp:number;currency:string;paidAt:string|null;createdAt:string;
+    items:OrderItemDetail[];history:OrderHistoryItem[];
+  };
+  address:OrderAddressDetail|null;
+}
+
 export interface CreateAdminProduct {
   name:string;slug:string;categoryId:string;shortDescription:string;description:string;materials:string;careInstructions:string;audience:string;basePriceClp:number;compareAtPriceClp:number|null;metaTitle:string;metaDescription:string;imageUrl:string;imageAlt:string;
   collectionIds?:string[];
@@ -20,6 +31,8 @@ export class AdminService{
   private readonly http=inject(HttpClient);private readonly api='/api/v1/admin';
   products():Observable<AdminProduct[]>{return this.http.get<AdminProduct[]>(`${this.api}/products`)}
   orders():Observable<AdminOrder[]>{return this.http.get<AdminOrder[]>(`${this.api}/orders`)}
+  getOrder(id:string):Observable<AdminOrderDetail>{return this.http.get<AdminOrderDetail>(`${this.api}/orders/${id}`)}
+  updateOrderStatus(id:string,status:string,reason:string):Observable<void>{return this.http.put<void>(`${this.api}/orders/${id}/status`,{status,reason})}
   inventory():Observable<AdminInventory[]>{return this.http.get<AdminInventory[]>(`${this.api}/inventory`)}
   categories():Observable<AdminCategory[]>{return this.http.get<AdminCategory[]>(`${this.api}/categories`)}
   collections():Observable<AdminCollection[]>{return this.http.get<AdminCollection[]>(`${this.api}/collections`)}

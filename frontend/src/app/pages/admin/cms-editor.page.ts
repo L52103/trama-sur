@@ -1407,6 +1407,12 @@ export class CmsEditorPage implements OnInit {
   saveDraft(): void {
     this.saving.set(true);
     this.statusText.set('Guardando borrador…');
+    try {
+      localStorage.setItem('trama_cms_draft_backup', JSON.stringify(this.content()));
+    } catch {
+      // Ignorar cuota excedida de localStorage
+    }
+
     this.cms.saveDraft(this.content()).subscribe({
       next: res => {
         this.versionId.set(res.versionId);
@@ -1419,9 +1425,13 @@ export class CmsEditorPage implements OnInit {
       },
       error: err => {
         this.saving.set(false);
-        this.statusText.set(err.status === 403 ? 'MFA requerido para guardar' : 'Error al guardar');
+        const detail = err.error?.detail || err.error?.message || (typeof err.error === 'string' ? err.error : null) || err.message;
+        const msg = err.status === 403
+          ? 'Se requiere verificación MFA para guardar cambios'
+          : detail ? `Error al guardar: ${detail}` : 'Error al guardar el borrador';
+        this.statusText.set(err.status === 403 ? 'MFA requerido' : 'Error al guardar');
         this.statusType.set('warning');
-        this.showToast(err.status === 403 ? 'Se requiere verificación MFA' : 'Error al guardar el borrador', 'error');
+        this.showToast(msg, 'error');
       }
     });
   }
@@ -1439,9 +1449,10 @@ export class CmsEditorPage implements OnInit {
             this.hasChanges.set(false);
             this.showPublishModal.set(true);
           },
-          error: () => {
+          error: err => {
             this.saving.set(false);
-            this.showToast('Error al guardar el borrador antes de publicar', 'error');
+            const detail = err.error?.detail || err.error?.message || err.message;
+            this.showToast(detail ? `Error al guardar: ${detail}` : 'Error al guardar el borrador antes de publicar', 'error');
           }
         });
         return;
@@ -1464,7 +1475,11 @@ export class CmsEditorPage implements OnInit {
       },
       error: err => {
         this.publishing.set(false);
-        this.showToast(err.status === 403 ? 'Se requiere verificación MFA' : 'Error al publicar', 'error');
+        const detail = err.error?.detail || err.error?.message || (typeof err.error === 'string' ? err.error : null) || err.message;
+        const msg = err.status === 403
+          ? 'Se requiere verificación MFA para publicar'
+          : detail ? `Error al publicar: ${detail}` : 'Error al publicar';
+        this.showToast(msg, 'error');
       }
     });
   }

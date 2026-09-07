@@ -62,12 +62,22 @@ public sealed class AdminContentController(StoreDbContext db, IConfiguration con
     }
 
     [HttpPut("{key}/draft")]
-    public async Task<IActionResult> SaveDraft(string key, ContentDraftRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> SaveDraft(string key, [FromBody] JsonElement rawBody, CancellationToken cancellationToken)
     {
-        var json = request.Content.GetRawText();
-        if (json.Length > 250_000 || request.Content.ValueKind is not JsonValueKind.Object) throw new DomainException("El contenido debe ser un objeto JSON de hasta 250 KB.");
+        if (rawBody.ValueKind != JsonValueKind.Object)
+            throw new DomainException("El cuerpo debe ser un objeto JSON.");
+
+        var content = rawBody.TryGetProperty("content", out var innerContent) && innerContent.ValueKind == JsonValueKind.Object
+            ? innerContent
+            : rawBody;
+
+        var json = content.GetRawText();
+        if (json.Length > 500_000 || content.ValueKind is not JsonValueKind.Object)
+            throw new DomainException("El contenido debe ser un objeto JSON de hasta 500 KB.");
+
         var normalizedKey = key.Trim().ToLowerInvariant();
-        if (normalizedKey == "home") ValidateHomeContent(request.Content);
+        if (normalizedKey == "home") ValidateHomeContent(content);
+
         var page = await db.ContentPages.Include(x => x.Versions).SingleOrDefaultAsync(x => x.Key == normalizedKey, cancellationToken);
         if (page is null)
         {
@@ -85,8 +95,8 @@ public sealed class AdminContentController(StoreDbContext db, IConfiguration con
     public async Task<IActionResult> Publish(string key, ContentPublishRequest request, CancellationToken cancellationToken)
     {
         var normalizedKey = key.Trim().ToLowerInvariant();
-        var page = await db.ContentPages.Include(x => x.Versions).SingleOrDefaultAsync(x => x.Key == normalizedKey, cancellationToken) ?? throw new KeyNotFoundException();
-        var version = page.Versions.SingleOrDefault(x => x.Id == request.VersionId) ?? throw new KeyNotFoundException();
+        var page = await db.ContentPages.Include(x => x.Versions).SingleOrDefaultAsync(x => x.Key == normalizedKey, cancellationToken) ?? throw new KeyNotFoundException("No se encontró la página solicitada.");
+        var version = page.Versions.SingleOrDefault(x => x.Id == request.VersionId) ?? throw new KeyNotFoundException("No se encontró la versión a publicar.");
         page.Publish(version, CurrentUserId(), request.Note, DateTimeOffset.UtcNow);
         db.AuditLogs.Add(AuditLogFactory.Create(User, HttpContext, configuration, "ContentPublished", "ContentPage", page.Id.ToString(), new { page.Key, version.VersionNumber, request.Note }));
         await db.SaveChangesAsync(cancellationToken);
@@ -100,57 +110,67 @@ public sealed class AdminContentController(StoreDbContext db, IConfiguration con
         return Ok(await db.ContentPageVersions.AsNoTracking().Where(x => x.ContentPageId == db.ContentPages.Where(p => p.Key == normalizedKey).Select(p => p.Id).FirstOrDefault()).OrderByDescending(x => x.VersionNumber).Select(x => new { x.Id, x.VersionNumber, x.Status, x.CreatedByUserId, x.PublishedByUserId, x.PublishedAt, x.PublicationNote }).ToListAsync(cancellationToken));
     }
 
-    private Guid CurrentUserId() => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : throw new UnauthorizedAccessException();
+    private Guid CurrentUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier)
+               ?? User.FindFirstValue("sub")
+               ?? User.FindFirstValue(ClaimTypes.Name)
+               ?? User.Claims.FirstOrDefault(c => c.Type.EndsWith("nameidentifier", StringComparison.OrdinalIgnoreCase) || c.Type == "sub")?.Value;
+
+        if (Guid.TryParse(raw, out var id)) return id;
+        if (User.Identity?.IsAuthenticated == true) return Guid.Empty;
+        throw new UnauthorizedAccessException("Usuario no autenticado o identificador inválido.");
+    }
 
     private static void ValidateHomeContent(JsonElement content)
     {
         EnsureProperties(content, ["announcement", "announcementLink", "announcementActive", "hero", "carousel", "featured", "story", "benefits", "categories"]);
-        PlainTextOptional(content, "announcement", 200);
-        PlainTextOptional(content, "announcementLink", 200);
+        PlainTextOptional(content, "announcement", 300);
+        PlainTextOptional(content, "announcementLink", 500);
 
         if (content.TryGetProperty("hero", out var hero) && hero.ValueKind == JsonValueKind.Object)
         {
             EnsureProperties(hero, ["eyebrow", "title", "accent", "description", "ctaLabel", "ctaLink", "imageUrl", "imageAlt"]);
-            PlainTextOptional(hero, "eyebrow", 120);
-            PlainTextOptional(hero, "title", 120);
-            PlainTextOptional(hero, "accent", 120);
-            PlainTextOptional(hero, "description", 500);
-            PlainTextOptional(hero, "ctaLabel", 60);
-            PlainTextOptional(hero, "ctaLink", 200);
-            PlainTextOptional(hero, "imageUrl", 500);
-            PlainTextOptional(hero, "imageAlt", 200);
+            PlainTextOptional(hero, "eyebrow", 150);
+            PlainTextOptional(hero, "title", 150);
+            PlainTextOptional(hero, "accent", 150);
+            PlainTextOptional(hero, "description", 1000);
+            PlainTextOptional(hero, "ctaLabel", 100);
+            PlainTextOptional(hero, "ctaLink", 500);
+            PlainTextOptional(hero, "imageUrl", 2000);
+            PlainTextOptional(hero, "imageAlt", 300);
         }
 
         if (content.TryGetProperty("carousel", out var carousel) && carousel.ValueKind == JsonValueKind.Array)
         {
-            if (carousel.GetArrayLength() > 12) throw new DomainException("El carrusel no puede tener más de 12 diapositivas.");
+            if (carousel.GetArrayLength() > 20) throw new DomainException("El carrusel no puede tener más de 20 diapositivas.");
             foreach (var slide in carousel.EnumerateArray())
             {
                 if (slide.ValueKind != JsonValueKind.Object) throw new DomainException("Cada diapositiva del carrusel debe ser un objeto.");
                 EnsureProperties(slide, ["id", "eyebrow", "title", "accent", "description", "ctaLabel", "ctaLink", "imageUrl", "imageAlt", "isActive"]);
-                PlainTextOptional(slide, "id", 60);
-                PlainTextOptional(slide, "eyebrow", 120);
-                PlainTextOptional(slide, "title", 120);
-                PlainTextOptional(slide, "accent", 120);
-                PlainTextOptional(slide, "description", 500);
-                PlainTextOptional(slide, "ctaLabel", 60);
-                PlainTextOptional(slide, "ctaLink", 200);
-                PlainTextOptional(slide, "imageUrl", 500);
-                PlainTextOptional(slide, "imageAlt", 200);
+                PlainTextOptional(slide, "id", 100);
+                PlainTextOptional(slide, "eyebrow", 150);
+                PlainTextOptional(slide, "title", 150);
+                PlainTextOptional(slide, "accent", 150);
+                PlainTextOptional(slide, "description", 1000);
+                PlainTextOptional(slide, "ctaLabel", 100);
+                PlainTextOptional(slide, "ctaLink", 500);
+                PlainTextOptional(slide, "imageUrl", 2000);
+                PlainTextOptional(slide, "imageAlt", 300);
             }
         }
 
         if (content.TryGetProperty("featured", out var featured) && featured.ValueKind == JsonValueKind.Object)
         {
             EnsureProperties(featured, ["eyebrow", "heading", "productIds", "autoSelect", "collectionId"]);
-            PlainTextOptional(featured, "eyebrow", 120);
-            PlainTextOptional(featured, "heading", 150);
+            PlainTextOptional(featured, "eyebrow", 150);
+            PlainTextOptional(featured, "heading", 200);
             if (featured.TryGetProperty("productIds", out var pids) && pids.ValueKind == JsonValueKind.Array)
             {
-                if (pids.GetArrayLength() > 24) throw new DomainException("No puedes seleccionar más de 24 productos destacados.");
+                if (pids.GetArrayLength() > 30) throw new DomainException("No puedes seleccionar más de 30 productos destacados.");
                 foreach (var pid in pids.EnumerateArray())
                 {
-                    if (pid.ValueKind != JsonValueKind.String || (pid.GetString()?.Length ?? 0) > 60)
+                    if (pid.ValueKind != JsonValueKind.String || (pid.GetString()?.Length ?? 0) > 100)
                         throw new DomainException("Identificador de producto inválido en destacados.");
                 }
             }
@@ -159,50 +179,52 @@ public sealed class AdminContentController(StoreDbContext db, IConfiguration con
         if (content.TryGetProperty("story", out var story) && story.ValueKind == JsonValueKind.Object)
         {
             EnsureProperties(story, ["eyebrow", "heading", "description", "imageUrl", "imageAlt", "ctaLabel", "ctaLink", "stats"]);
-            PlainTextOptional(story, "eyebrow", 120);
-            PlainTextOptional(story, "heading", 160);
-            PlainTextOptional(story, "description", 1000);
-            PlainTextOptional(story, "imageUrl", 500);
-            PlainTextOptional(story, "imageAlt", 200);
-            PlainTextOptional(story, "ctaLabel", 60);
-            PlainTextOptional(story, "ctaLink", 200);
+            PlainTextOptional(story, "eyebrow", 150);
+            PlainTextOptional(story, "heading", 200);
+            PlainTextOptional(story, "description", 2000);
+            PlainTextOptional(story, "imageUrl", 2000);
+            PlainTextOptional(story, "imageAlt", 300);
+            PlainTextOptional(story, "ctaLabel", 100);
+            PlainTextOptional(story, "ctaLink", 500);
             if (story.TryGetProperty("stats", out var stats) && stats.ValueKind == JsonValueKind.Array)
             {
-                if (stats.GetArrayLength() > 6) throw new DomainException("Máximo 6 contadores estadísticos en historia.");
+                if (stats.GetArrayLength() > 10) throw new DomainException("Máximo 10 contadores estadísticos en historia.");
                 foreach (var stat in stats.EnumerateArray())
                 {
                     if (stat.ValueKind != JsonValueKind.Object) throw new DomainException("Cada estadística debe ser un objeto.");
                     EnsureProperties(stat, ["number", "label"]);
-                    PlainTextOptional(stat, "number", 40);
-                    PlainTextOptional(stat, "label", 80);
+                    PlainTextOptional(stat, "number", 60);
+                    PlainTextOptional(stat, "label", 120);
                 }
             }
         }
 
         if (content.TryGetProperty("benefits", out var benefits) && benefits.ValueKind == JsonValueKind.Array)
         {
-            if (benefits.GetArrayLength() > 6) throw new DomainException("Máximo 6 beneficios de compra.");
+            if (benefits.GetArrayLength() > 10) throw new DomainException("Máximo 10 beneficios de compra.");
             foreach (var b in benefits.EnumerateArray())
             {
                 if (b.ValueKind != JsonValueKind.Object) throw new DomainException("Cada beneficio debe ser un objeto.");
-                EnsureProperties(b, ["title", "description", "icon"]);
-                PlainTextOptional(b, "title", 80);
-                PlainTextOptional(b, "description", 160);
-                PlainTextOptional(b, "icon", 40);
+                EnsureProperties(b, ["id", "title", "description", "icon"]);
+                PlainTextOptional(b, "id", 100);
+                PlainTextOptional(b, "title", 120);
+                PlainTextOptional(b, "description", 300);
+                PlainTextOptional(b, "icon", 60);
             }
         }
 
         if (content.TryGetProperty("categories", out var categories) && categories.ValueKind == JsonValueKind.Array)
         {
-            if (categories.GetArrayLength() > 8) throw new DomainException("Máximo 8 categorías destacadas.");
+            if (categories.GetArrayLength() > 12) throw new DomainException("Máximo 12 categorías destacadas.");
             foreach (var cat in categories.EnumerateArray())
             {
                 if (cat.ValueKind != JsonValueKind.Object) throw new DomainException("Cada categoría debe ser un objeto.");
-                EnsureProperties(cat, ["label", "link", "imageUrl", "imageAlt"]);
-                PlainTextOptional(cat, "label", 80);
-                PlainTextOptional(cat, "link", 200);
-                PlainTextOptional(cat, "imageUrl", 500);
-                PlainTextOptional(cat, "imageAlt", 200);
+                EnsureProperties(cat, ["id", "label", "link", "imageUrl", "imageAlt"]);
+                PlainTextOptional(cat, "id", 100);
+                PlainTextOptional(cat, "label", 120);
+                PlainTextOptional(cat, "link", 500);
+                PlainTextOptional(cat, "imageUrl", 2000);
+                PlainTextOptional(cat, "imageAlt", 300);
             }
         }
     }
@@ -219,7 +241,15 @@ public sealed class AdminContentController(StoreDbContext db, IConfiguration con
 
     private static void EnsureProperties(JsonElement element, IReadOnlyCollection<string> allowed)
     {
-        if (element.EnumerateObject().Any(property => !allowed.Contains(property.Name, StringComparer.Ordinal))) throw new DomainException("El contenido incluye campos no permitidos.");
+        var invalid = element.EnumerateObject()
+            .Select(property => property.Name)
+            .Where(name => !allowed.Contains(name, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        if (invalid.Count > 0)
+        {
+            throw new DomainException($"El contenido incluye campos no permitidos: {string.Join(", ", invalid)}.");
+        }
     }
 }
 

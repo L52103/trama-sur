@@ -132,7 +132,7 @@ public sealed class ContentPageVersion : Entity
         ContentPageId = contentPageId;
         if (versionNumber <= 0) throw new DomainException("La versión debe ser positiva.");
         VersionNumber = versionNumber;
-        ContentJson = Guard.Required(contentJson, nameof(contentJson), 100000);
+        ContentJson = Guard.Required(contentJson, nameof(contentJson), 500000);
         CreatedByUserId = createdByUserId;
         Status = PublicationStatus.Draft;
     }

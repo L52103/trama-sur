@@ -48,6 +48,40 @@ public sealed class AdminReturnsController(StoreDbContext db, IConfiguration con
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken cancellationToken) => Ok(await db.Returns.AsNoTracking().Include(x => x.Items).Join(db.Orders, r => r.OrderId, o => o.Id, (r, o) => new { r.Id, r.OrderId, o.Number, o.CustomerEmail, r.Status, r.Reason, r.CustomerNotes, items = r.Items.Count, r.CreatedAt }).OrderByDescending(x => x.CreatedAt).Take(300).ToListAsync(cancellationToken));
 
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> Get(Guid id, CancellationToken cancellationToken)
+    {
+        var ret = await db.Returns.AsNoTracking().Include(x => x.Items).SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (ret is null) return NotFound();
+        var order = await db.Orders.AsNoTracking().Include(x => x.Items).SingleOrDefaultAsync(x => x.Id == ret.OrderId, cancellationToken);
+        var itemIds = ret.Items.Select(i => i.OrderItemId).ToList();
+        var orderItems = order?.Items.Where(i => itemIds.Contains(i.Id)).Select(i => new {
+            i.Id,
+            i.ProductName,
+            i.Sku,
+            i.Color,
+            i.Size,
+            i.UnitPriceClp,
+            QuantityReturned = ret.Items.Where(r => r.OrderItemId == i.Id).Select(r => r.Quantity).FirstOrDefault(),
+            OriginalQuantity = i.Quantity
+        }).ToList();
+
+        var logs = await db.AuditLogs.AsNoTracking().Where(x => x.ResourceId == id.ToString()).OrderByDescending(x => x.CreatedAt).ToListAsync(cancellationToken);
+
+        return Ok(new {
+            ret.Id,
+            ret.OrderId,
+            orderNumber = order?.Number,
+            customerEmail = order?.CustomerEmail,
+            ret.Status,
+            ret.Reason,
+            ret.CustomerNotes,
+            ret.CreatedAt,
+            items = orderItems,
+            history = logs.Select(l => new { l.Action, l.ChangesJson, l.CreatedAt })
+        });
+    }
+
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, UpdateReturnRequest request, CancellationToken cancellationToken)
     {

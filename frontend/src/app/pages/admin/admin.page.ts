@@ -6,10 +6,14 @@ import { finalize, forkJoin, Observable, of, switchMap } from 'rxjs';
 import {
   AdminCategory,
   AdminCollection,
+  AdminCustomer,
+  AdminCustomerDetail,
   AdminInventory,
   AdminOrder,
   AdminOrderDetail,
   AdminProduct,
+  AdminReturn,
+  AdminReturnDetail,
   AdminService,
   CreateAdminProduct
 } from '../../core/admin.service';
@@ -570,6 +574,149 @@ const CACHE_KEY = 'trama_admin_draft_cache';
         </section>
       }
 
+      <!-- ==================== DEVOLUCIONES ==================== -->
+      @else if (section() === 'Devoluciones') {
+        <section class="returns-section full-page">
+          <div class="section-header-row">
+            <div>
+              <h2>Gestión de Devoluciones y Cambios</h2>
+              <p>{{ filteredReturns().length }} solicitudes encontradas · Control de logística inversa y reembolsos</p>
+            </div>
+            <div class="search-box">
+              <input
+                type="text"
+                placeholder="Buscar por # pedido, cliente o motivo…"
+                [(ngModel)]="returnSearchText"
+                class="search-input"
+              />
+            </div>
+          </div>
+
+          <!-- CHIPS DE FILTRO DE DEVOLUCIONES -->
+          <div class="filter-chips">
+            <button
+              type="button"
+              class="chip"
+              [class.active]="returnFilter() === 'ALL'"
+              (click)="returnFilter.set('ALL')"
+            >
+              Todas <span class="chip-count">{{ returns().length }}</span>
+            </button>
+            <button
+              type="button"
+              class="chip"
+              [class.active]="returnFilter() === 'Requested'"
+              (click)="returnFilter.set('Requested')"
+            >
+              Solicitadas <span class="chip-count">{{ countReturnsByStatus('Requested') }}</span>
+            </button>
+            <button
+              type="button"
+              class="chip"
+              [class.active]="returnFilter() === 'UnderReview'"
+              (click)="returnFilter.set('UnderReview')"
+            >
+              En revisión <span class="chip-count">{{ countReturnsByStatus('UnderReview') }}</span>
+            </button>
+            <button
+              type="button"
+              class="chip"
+              [class.active]="returnFilter() === 'Approved'"
+              (click)="returnFilter.set('Approved')"
+            >
+              Aprobadas <span class="chip-count">{{ countReturnsByStatus('Approved') }}</span>
+            </button>
+            <button
+              type="button"
+              class="chip"
+              [class.active]="returnFilter() === 'Received'"
+              (click)="returnFilter.set('Received')"
+            >
+              En bodega <span class="chip-count">{{ countReturnsByStatus('Received') }}</span>
+            </button>
+            <button
+              type="button"
+              class="chip"
+              [class.active]="returnFilter() === 'Refunded'"
+              (click)="returnFilter.set('Refunded')"
+            >
+              Reembolsadas <span class="chip-count">{{ countReturnsByStatus('Refunded') }}</span>
+            </button>
+            <button
+              type="button"
+              class="chip"
+              [class.active]="returnFilter() === 'Rejected'"
+              (click)="returnFilter.set('Rejected')"
+            >
+              Rechazadas <span class="chip-count">{{ countReturnsByStatus('Rejected') }}</span>
+            </button>
+            <button
+              type="button"
+              class="chip"
+              [class.active]="returnFilter() === 'Closed'"
+              (click)="returnFilter.set('Closed')"
+            >
+              Cerradas <span class="chip-count">{{ countReturnsByStatus('Closed') }}</span>
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>N° Pedido</th>
+                  <th>Cliente</th>
+                  <th>Motivo</th>
+                  <th>Ítems</th>
+                  <th>Fecha Solicitud</th>
+                  <th>Estado</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (ret of filteredReturns(); track ret.id) {
+                  <tr class="clickable-row" (click)="openReturnDetail(ret)">
+                    <td>
+                      <b class="order-number">#{{ ret.number }}</b>
+                    </td>
+                    <td>
+                      <div class="customer-cell">
+                        <span>{{ ret.customerEmail }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="reason-preview" [title]="ret.reason">{{ ret.reason }}</span>
+                    </td>
+                    <td>
+                      <span class="stock-pill good">{{ ret.items }} un.</span>
+                    </td>
+                    <td>{{ date(ret.createdAt) }}</td>
+                    <td>
+                      <span class="status-chip" [class]="'st-' + ret.status.toLowerCase()">
+                        {{ returnStatusLabel(ret.status) }}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        class="btn-sm primary"
+                        (click)="$event.stopPropagation(); openReturnDetail(ret)"
+                      >
+                        Ver solicitud →
+                      </button>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="7" class="empty-cell">No se encontraron solicitudes de devolución con el filtro seleccionado.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+
       <!-- ==================== EDITAR LANDINGPAGE ==================== -->
       @else if (section() === 'Editar Landingpage') {
         <section class="placeholder-card">
@@ -584,13 +731,137 @@ const CACHE_KEY = 'trama_admin_draft_cache';
 
       <!-- ==================== CLIENTES ==================== -->
       @else if (section() === 'Clientes') {
-        <section class="placeholder-card">
-          <span class="icon-hero">♙</span>
-          <h2>Clientes & Fidelización</h2>
-          <p>
-            Módulo de visualización de clientes recurrentes, historial de pedidos por usuario y datos de contacto de compradores frecuentes.
-          </p>
-          <div class="info-tag">En preparación para la próxima versión</div>
+        <section class="customers-section full-page">
+          <!-- BANNER DE MÉTRICAS DE CLIENTES -->
+          <div class="metrics customer-metrics-banner">
+            <article class="metric-card">
+              <span>Total Clientes</span>
+              <b>{{ customerMetrics().total }}</b>
+              <small>{{ customerMetrics().registered }} registrados con cuenta</small>
+            </article>
+            <article class="metric-card">
+              <span>LTV Promedio</span>
+              <b>{{ format(customerMetrics().avgLtv) }}</b>
+              <small>Gasto acumulado medio</small>
+            </article>
+            <article class="metric-card">
+              <span>Compradores Recurrentes</span>
+              <b>{{ customerMetrics().repeat }}</b>
+              <small>{{ customerMetrics().repeatPercentage }}% con más de 1 pedido</small>
+            </article>
+            <article class="metric-card">
+              <span>Privacidad & ARCO+</span>
+              <b>100% Cumplimiento</b>
+              <small>Ley 19.628 y consentimientos activos</small>
+            </article>
+          </div>
+
+          <div class="section-header-row">
+            <div>
+              <h2>Directorio de Clientes</h2>
+              <p>{{ filteredCustomers().length }} clientes listados · Historial, LTV y trazabilidad</p>
+            </div>
+            <div class="search-box">
+              <input
+                type="text"
+                placeholder="Buscar por nombre o correo…"
+                [(ngModel)]="customerSearchText"
+                (keydown.enter)="searchCustomersLive()"
+                class="search-input"
+              />
+            </div>
+          </div>
+
+          <!-- CHIPS DE FILTRO DE TIPO DE CLIENTE -->
+          <div class="filter-chips">
+            <button
+              type="button"
+              class="chip"
+              [class.active]="customerFilter() === 'ALL'"
+              (click)="customerFilter.set('ALL')"
+            >
+              Todos <span class="chip-count">{{ customersList().length }}</span>
+            </button>
+            <button
+              type="button"
+              class="chip"
+              [class.active]="customerFilter() === 'Registered'"
+              (click)="customerFilter.set('Registered')"
+            >
+              Registrados <span class="chip-count">{{ customerMetrics().registered }}</span>
+            </button>
+            <button
+              type="button"
+              class="chip"
+              [class.active]="customerFilter() === 'Guest'"
+              (click)="customerFilter.set('Guest')"
+            >
+              Compradores Invitados <span class="chip-count">{{ customerMetrics().total - customerMetrics().registered }}</span>
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Tipo</th>
+                  <th>Pedidos</th>
+                  <th>Gasto Total (LTV)</th>
+                  <th>Última Compra</th>
+                  <th>Consentimiento Marketing</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (c of filteredCustomers(); track c.id) {
+                  <tr class="clickable-row" (click)="openCustomerDetail(c)">
+                    <td>
+                      <div class="customer-profile-cell">
+                        <span class="customer-avatar">{{ (c.firstName?.[0] || c.email?.[0] || 'C').toUpperCase() }}</span>
+                        <div>
+                          <b>{{ c.firstName }} {{ c.lastName }}</b>
+                          <small>{{ c.email }}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="customer-tag" [class.registered]="c.isRegistered" [class.guest]="!c.isRegistered">
+                        {{ c.isRegistered ? '★ Registrado' : 'Invitado' }}
+                      </span>
+                    </td>
+                    <td>
+                      <b>{{ c.ordersCount }}</b> pedido(s)
+                    </td>
+                    <td>
+                      <b class="order-number">{{ format(c.totalSpentClp) }}</b>
+                    </td>
+                    <td>{{ c.lastOrderAt ? date(c.lastOrderAt) : 'Sin pedidos' }}</td>
+                    <td>
+                      @if (c.marketingConsent) {
+                        <span class="status paid" title="Aceptó recibir comunicaciones comerciales">✓ Aceptado</span>
+                      } @else {
+                        <span class="status" title="No ha otorgado consentimiento publicitario">✕ No suscrito</span>
+                      }
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        class="btn-sm primary"
+                        (click)="$event.stopPropagation(); openCustomerDetail(c)"
+                      >
+                        Ver expediente →
+                      </button>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="7" class="empty-cell">No se encontraron clientes con el filtro seleccionado.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         </section>
       }
 
@@ -917,6 +1188,330 @@ const CACHE_KEY = 'trama_admin_draft_cache';
     </aside>
   }
 
+  <!-- ==================== DRAWER LATERAL DE DETALLE DE DEVOLUCIÓN ==================== -->
+  @if (showReturnDrawer()) {
+    <div class="drawer-backdrop" (click)="closeReturnDrawer()"></div>
+    <aside class="order-drawer" role="dialog" aria-modal="true">
+      <header class="drawer-header">
+        <div>
+          <p class="eyebrow">Logística Inversa & Devolución</p>
+          <h2>Pedido #{{ currentReturnDetails()?.orderNumber || '...' }}</h2>
+        </div>
+        <button type="button" class="close-btn" (click)="closeReturnDrawer()" aria-label="Cerrar">
+          <app-icon name="close" />
+        </button>
+      </header>
+
+      @if (loadingReturnDetail()) {
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Cargando información de la devolución…</p>
+        </div>
+      } @else if (currentReturnDetails(); as detail) {
+        <div class="drawer-content">
+          <!-- ESTADO ACTUAL Y ACCIONES -->
+          <div class="order-status-card">
+            <div class="status-summary">
+              <div>
+                <small>Estado de la Devolución:</small>
+                <h3>{{ returnStatusLabel(detail.status) }}</h3>
+              </div>
+              <span class="status-chip" [class]="'st-' + detail.status.toLowerCase()">
+                {{ returnStatusLabel(detail.status) }}
+              </span>
+            </div>
+
+            <!-- ACCIONES RÁPIDAS DEL VENDEDOR -->
+            <div class="operational-actions">
+              <label>Actualizar estado de la solicitud:</label>
+              <div class="action-btn-group">
+                @if (detail.status === 'Requested') {
+                  <button
+                    type="button"
+                    class="btn-sm secondary"
+                    [disabled]="updatingReturnStatus()"
+                    (click)="changeReturnStatus(detail.id, 'UnderReview', 'En revisión por el equipo')"
+                  >
+                    🔍 Poner en Revisión
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-sm primary"
+                    [disabled]="updatingReturnStatus()"
+                    (click)="promptApproveReturn(detail.id)"
+                  >
+                    ✓ Aprobar Devolución
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-sm danger"
+                    [disabled]="updatingReturnStatus()"
+                    (click)="promptRejectReturn(detail.id)"
+                  >
+                    ✕ Rechazar
+                  </button>
+                } @else if (detail.status === 'UnderReview') {
+                  <button
+                    type="button"
+                    class="btn-sm primary"
+                    [disabled]="updatingReturnStatus()"
+                    (click)="promptApproveReturn(detail.id)"
+                  >
+                    ✓ Aprobar Devolución
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-sm danger"
+                    [disabled]="updatingReturnStatus()"
+                    (click)="promptRejectReturn(detail.id)"
+                  >
+                    ✕ Rechazar
+                  </button>
+                } @else if (detail.status === 'Approved') {
+                  <button
+                    type="button"
+                    class="btn-sm primary"
+                    [disabled]="updatingReturnStatus()"
+                    (click)="changeReturnStatus(detail.id, 'Received', 'Mercadería recibida en bodega central')"
+                  >
+                    📦 Confirmar Recepción en Bodega
+                  </button>
+                } @else if (detail.status === 'Received') {
+                  <button
+                    type="button"
+                    class="btn-sm primary"
+                    [disabled]="updatingReturnStatus()"
+                    (click)="changeReturnStatus(detail.id, 'Refunded', 'Reembolso procesado al medio original de pago')"
+                  >
+                    💳 Procesar Reembolso
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-sm secondary"
+                    [disabled]="updatingReturnStatus()"
+                    (click)="changeReturnStatus(detail.id, 'Closed', 'Devolución cerrada sin reembolso adicional')"
+                  >
+                    Cerrar caso
+                  </button>
+                } @else if (detail.status === 'Refunded') {
+                  <button
+                    type="button"
+                    class="btn-sm secondary"
+                    [disabled]="updatingReturnStatus()"
+                    (click)="changeReturnStatus(detail.id, 'Closed', 'Devolución y reembolso concluidos')"
+                  >
+                    Finalizar y Cerrar caso
+                  </button>
+                } @else {
+                  <span class="status">Solicitud concluida ({{ returnStatusLabel(detail.status) }})</span>
+                }
+              </div>
+            </div>
+          </div>
+
+          <!-- INFORMACIÓN DEL CLIENTE Y MOTIVO -->
+          <article class="detail-card">
+            <h4>Datos de la Solicitud</h4>
+            <div class="info-grid">
+              <div>
+                <small>Correo del cliente</small>
+                <p><b>{{ detail.customerEmail }}</b></p>
+              </div>
+              <div>
+                <small>Fecha de solicitud</small>
+                <p>{{ date(detail.createdAt) }}</p>
+              </div>
+              <div class="full-width">
+                <small>Motivo de Devolución declarado</small>
+                <p class="reason-quote">"{{ detail.reason }}"</p>
+              </div>
+              @if (detail.customerNotes) {
+                <div class="full-width">
+                  <small>Comentarios adicionales del cliente</small>
+                  <p class="notes-box">{{ detail.customerNotes }}</p>
+                </div>
+              }
+            </div>
+          </article>
+
+          <!-- ARTÍCULOS A DEVOLVER -->
+          <article class="detail-card">
+            <h4>Prendas a Devolver ({{ detail.items.length }})</h4>
+            <div class="order-items-list">
+              @for (item of detail.items; track item.id) {
+                <div class="drawer-item-row">
+                  <div class="item-info">
+                    <b>{{ item.productName }}</b>
+                    <small>SKU: {{ item.sku }} · {{ item.color }} · Talla {{ item.size }}</small>
+                  </div>
+                  <div class="item-qty">
+                    <span class="qty-pill">{{ item.quantityReturned }} de {{ item.originalQuantity }} un.</span>
+                  </div>
+                  <div class="item-price">
+                    <b>{{ format(item.unitPriceClp * item.quantityReturned) }}</b>
+                    <small>{{ format(item.unitPriceClp) }} c/u</small>
+                  </div>
+                </div>
+              }
+            </div>
+          </article>
+
+          <!-- HISTORIAL DE AUDITORÍA -->
+          @if (detail.history && detail.history.length > 0) {
+            <article class="detail-card">
+              <h4>Historial de Auditoría Criptográfica</h4>
+              <div class="timeline">
+                @for (h of detail.history; track h.createdAt) {
+                  <div class="timeline-entry">
+                    <span class="timeline-dot"></span>
+                    <div class="timeline-body">
+                      <b>{{ h.action }}</b>
+                      <p>{{ h.changesJson }}</p>
+                      <small>{{ date(h.createdAt) }}</small>
+                    </div>
+                  </div>
+                }
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </aside>
+  }
+
+  <!-- ==================== DRAWER LATERAL DE EXPEDIENTE DEL CLIENTE ==================== -->
+  @if (showCustomerDrawer()) {
+    <div class="drawer-backdrop" (click)="closeCustomerDrawer()"></div>
+    <aside class="order-drawer" role="dialog" aria-modal="true">
+      <header class="drawer-header">
+        <div>
+          <p class="eyebrow">Expediente del Cliente</p>
+          <h2>{{ currentCustomerDetails()?.firstName || 'Cliente' }} {{ currentCustomerDetails()?.lastName || '' }}</h2>
+        </div>
+        <button type="button" class="close-btn" (click)="closeCustomerDrawer()" aria-label="Cerrar">
+          <app-icon name="close" />
+        </button>
+      </header>
+
+      @if (loadingCustomerDetail()) {
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Cargando expediente del cliente…</p>
+        </div>
+      } @else if (currentCustomerDetails(); as c) {
+        <div class="drawer-content">
+          <!-- CABECERA DE PERFIL -->
+          <div class="customer-header-card">
+            <div class="customer-avatar-large">
+              {{ (c.firstName?.[0] || c.email?.[0] || 'C').toUpperCase() }}
+            </div>
+            <div class="customer-main-info">
+              <h3>{{ c.firstName }} {{ c.lastName }}</h3>
+              <p class="customer-email-link">{{ c.email }}</p>
+              @if (c.phoneNumber) {
+                <p class="customer-phone">{{ c.phoneNumber }}</p>
+              }
+              <div class="customer-badge-row">
+                <span class="customer-tag" [class.registered]="c.isRegistered" [class.guest]="!c.isRegistered">
+                  {{ c.isRegistered ? '★ Usuario Registrado' : 'Comprador Invitado' }}
+                </span>
+                <span class="status">Cliente desde {{ date(c.createdAt) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- MÉTRICAS CLAVE DEL CLIENTE (LTV) -->
+          <div class="customer-drawer-metrics">
+            <div class="c-metric">
+              <small>Gasto Total Acumulado (LTV)</small>
+              <b>{{ format(c.metrics.totalSpentClp) }}</b>
+            </div>
+            <div class="c-metric">
+              <small>Pedidos Realizados</small>
+              <b>{{ c.metrics.ordersCount }}</b>
+            </div>
+            <div class="c-metric">
+              <small>Ticket Promedio (AOV)</small>
+              <b>{{ format(c.metrics.averageOrderValueClp) }}</b>
+            </div>
+          </div>
+
+          <!-- CUMPLIMIENTO DE PRIVACIDAD Y ARCO+ (LEY 19.628) -->
+          <article class="detail-card privacy-card">
+            <h4>Privacidad & Derechos ARCO+ (Ley 19.628)</h4>
+            <div class="privacy-status-row">
+              <span class="privacy-icon">{{ c.marketingConsent ? '🛡️' : '🔒' }}</span>
+              <div>
+                <b>{{ c.marketingConsent ? 'Consentimiento de Marketing Activo' : 'Sin Consentimiento Publicitario' }}</b>
+                <small>
+                  {{ c.marketingConsent && c.marketingConsentAt ? ('Autorizado el ' + date(c.marketingConsentAt)) : 'El cliente no ha autorizado el envío de promociones o correos comerciales.' }}
+                </small>
+              </div>
+            </div>
+            <p class="privacy-hint">
+              Los datos se tratan bajo estrictas medidas criptográficas y los derechos de Acceso, Rectificación, Cancelación y Oposición del titular.
+            </p>
+          </article>
+
+          <!-- DIRECCIONES REGISTRADAS O DE DESPACHO -->
+          <article class="detail-card">
+            <h4>Direcciones de Despacho ({{ c.addresses.length }})</h4>
+            <div class="addresses-list">
+              @for (addr of c.addresses; track addr.id) {
+                <div class="address-item-card">
+                  <div class="address-header">
+                    <b>{{ addr.label || 'Dirección de Entrega' }}</b>
+                    @if (addr.isDefault) {
+                      <span class="status paid">Predeterminada</span>
+                    }
+                  </div>
+                  <p><strong>{{ addr.recipientName }}</strong> · {{ addr.phone }}</p>
+                  <p>{{ addr.addressLine1 }}{{ addr.addressLine2 ? ', ' + addr.addressLine2 : '' }}</p>
+                  <p class="commune-region">{{ addr.commune }}, {{ addr.region }}</p>
+                  @if (addr.instructions) {
+                    <small class="instructions-hint">Instrucciones: {{ addr.instructions }}</small>
+                  }
+                </div>
+              } @empty {
+                <p class="empty-hint">No hay direcciones registradas aún.</p>
+              }
+            </div>
+          </article>
+
+          <!-- HISTORIAL DE PEDIDOS DEL CLIENTE -->
+          <article class="detail-card">
+            <h4>Historial de Compras ({{ c.orders.length }})</h4>
+            <div class="customer-orders-list">
+              @for (o of c.orders; track o.id) {
+                <div class="customer-order-row">
+                  <div>
+                    <b class="order-number">#{{ o.number }}</b>
+                    <small>{{ date(o.createdAt) }} · {{ o.itemsCount }} prenda(s)</small>
+                  </div>
+                  <div class="customer-order-right">
+                    <b>{{ format(o.totalClp) }}</b>
+                    <span class="status-chip" [class]="'st-' + o.status.toLowerCase()">
+                      {{ statusLabel(o.status) }}
+                    </span>
+                    <button
+                      type="button"
+                      class="btn-sm secondary"
+                      (click)="viewCustomerOrder(o.number)"
+                    >
+                      Ver orden →
+                    </button>
+                  </div>
+                </div>
+              } @empty {
+                <p class="empty-hint">Este cliente aún no ha registrado pedidos.</p>
+              }
+            </div>
+          </article>
+        </div>
+      }
+    </aside>
+  }
+
   <!-- ==================== MODAL DE PRODUCTO ==================== -->
   @if (showEditor()) {
     <div class="drawer-backdrop" (click)="showEditor.set(false)"></div>
@@ -1206,12 +1801,17 @@ export class AdminPage {
   readonly showPriceEditor = signal(false);
   readonly showStockEditor = signal(false);
   readonly showOrderDrawer = signal(false);
+  readonly showReturnDrawer = signal(false);
+  readonly showCustomerDrawer = signal(false);
 
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly savingBatch = signal(false);
   readonly loadingOrderDetail = signal(false);
+  readonly loadingReturnDetail = signal(false);
+  readonly loadingCustomerDetail = signal(false);
   readonly updatingOrderStatus = signal(false);
+  readonly updatingReturnStatus = signal(false);
 
   readonly error = signal('');
   readonly saveStatus = signal('');
@@ -1222,7 +1822,12 @@ export class AdminPage {
   readonly inventory = signal<AdminInventory[]>([]);
   readonly categories = signal<AdminCategory[]>([]);
   readonly collections = signal<AdminCollection[]>([]);
+  readonly returns = signal<AdminReturn[]>([]);
+  readonly customersList = signal<AdminCustomer[]>([]);
+
   readonly currentOrderDetails = signal<AdminOrderDetail | null>(null);
+  readonly currentReturnDetails = signal<AdminReturnDetail | null>(null);
+  readonly currentCustomerDetails = signal<AdminCustomerDetail | null>(null);
 
   readonly format = clp;
 
@@ -1235,6 +1840,12 @@ export class AdminPage {
 
   inventorySearch = '';
   readonly onlyLowStockFilter = signal(false);
+
+  returnSearchText = '';
+  readonly returnFilter = signal<string>('ALL');
+
+  customerSearchText = '';
+  readonly customerFilter = signal<'ALL' | 'Registered' | 'Guest'>('ALL');
 
   // Almacén reactivo de cambios en caché
   readonly pending = signal<PendingCache>({
@@ -1255,7 +1866,7 @@ export class AdminPage {
     { icon: '□', label: 'Pedidos', badge: true },
     { icon: '◇', label: 'Productos' },
     { icon: '↕', label: 'Inventario', badge: true },
-    { icon: '↺', label: 'Devoluciones' },
+    { icon: '↺', label: 'Devoluciones', badge: true },
     { icon: '✦', label: 'Editar Landingpage' },
     { icon: '♙', label: 'Clientes' },
     { icon: '⚙', label: 'Configuración' }
@@ -1268,6 +1879,10 @@ export class AdminPage {
 
   readonly pendingOrders = computed(() =>
     this.orders().filter(x => !x.paidAt || x.status === 'PendingPayment' || x.status === 'Paid').length
+  );
+
+  readonly pendingReturns = computed(() =>
+    this.returns().filter(x => x.status === 'Requested' || x.status === 'UnderReview').length
   );
 
   readonly recentOrders = computed(() => this.orders().slice(0, 6));
@@ -1318,6 +1933,53 @@ export class AdminPage {
         const bLow = b.available <= this.getEffectiveThreshold(b) ? -1 : 1;
         return aLow - bLow;
       });
+  });
+
+  readonly filteredReturns = computed(() => {
+    const q = this.returnSearchText.trim().toLowerCase();
+    const filter = this.returnFilter();
+
+    return this.returns().filter(r => {
+      if (filter !== 'ALL' && r.status !== filter) return false;
+      if (q && !r.number.toLowerCase().includes(q) && !r.customerEmail.toLowerCase().includes(q) && !r.reason.toLowerCase().includes(q)) {
+        return false;
+      }
+      return true;
+    });
+  });
+
+  countReturnsByStatus(status: string): number {
+    return this.returns().filter(r => r.status === status).length;
+  }
+
+  readonly filteredCustomers = computed(() => {
+    const q = this.customerSearchText.trim().toLowerCase();
+    const filter = this.customerFilter();
+
+    return this.customersList().filter(c => {
+      if (filter === 'Registered' && !c.isRegistered) return false;
+      if (filter === 'Guest' && c.isRegistered) return false;
+      if (q && !c.email.toLowerCase().includes(q) && !c.firstName.toLowerCase().includes(q) && !c.lastName.toLowerCase().includes(q)) {
+        return false;
+      }
+      return true;
+    });
+  });
+
+  readonly customerMetrics = computed(() => {
+    const list = this.customersList();
+    const total = list.length;
+    const registered = list.filter(c => c.isRegistered).length;
+    const repeat = list.filter(c => c.ordersCount > 1).length;
+    const totalSpent = list.reduce((sum, c) => sum + c.totalSpentClp, 0);
+    const avgLtv = total > 0 ? Math.round(totalSpent / total) : 0;
+    return {
+      total,
+      registered,
+      repeat,
+      repeatPercentage: total > 0 ? Math.round((repeat / total) * 100) : 0,
+      avgLtv
+    };
   });
 
   readonly metrics = computed(() => {
@@ -1400,6 +2062,8 @@ export class AdminPage {
       inventory: this.api.inventory(),
       categories: this.api.categories(),
       collections: this.api.collections(),
+      returns: this.api.returns(),
+      customers: this.api.customers(),
       settings: this.api.getSettings()
     })
       .pipe(finalize(() => this.loading.set(false)))
@@ -1410,6 +2074,8 @@ export class AdminPage {
           this.inventory.set(r.inventory);
           this.categories.set(r.categories);
           this.collections.set(r.collections);
+          this.returns.set(r.returns);
+          this.customersList.set(r.customers);
 
           if (!this.draft.categoryId && r.categories.length) {
             this.draft.categoryId = r.categories[0].id;
@@ -1695,12 +2361,15 @@ export class AdminPage {
       ? String(this.pendingOrders())
       : section === 'Inventario'
       ? String(this.lowStock().length)
+      : section === 'Devoluciones'
+      ? String(this.pendingReturns())
       : '';
   }
 
   badgeIsAlert(section: string): boolean {
     if (section === 'Inventario' && this.lowStock().length > 0) return true;
     if (section === 'Pedidos' && this.pendingOrders() > 0) return true;
+    if (section === 'Devoluciones' && this.pendingReturns() > 0) return true;
     return false;
   }
 
@@ -1739,6 +2408,125 @@ export class AdminPage {
       hour: '2-digit',
       minute: '2-digit'
     }).format(new Date(value));
+  }
+
+  // ==================== GESTIÓN DE DEVOLUCIONES ====================
+
+  openReturnDetail(ret: AdminReturn): void {
+    this.showReturnDrawer.set(true);
+    this.loadingReturnDetail.set(true);
+    this.currentReturnDetails.set(null);
+
+    this.api.getReturn(ret.id).subscribe({
+      next: res => {
+        this.currentReturnDetails.set(res);
+        this.loadingReturnDetail.set(false);
+      },
+      error: () => {
+        this.loadingReturnDetail.set(false);
+        this.showToastNotification('No se pudo cargar el detalle de la devolución.', 'error');
+      }
+    });
+  }
+
+  closeReturnDrawer(): void {
+    this.showReturnDrawer.set(false);
+    this.currentReturnDetails.set(null);
+  }
+
+  changeReturnStatus(returnId: string, targetStatus: string, resolutionNote: string = ''): void {
+    this.updatingReturnStatus.set(true);
+
+    this.api.updateReturnStatus(returnId, targetStatus, resolutionNote).subscribe({
+      next: () => {
+        this.updatingReturnStatus.set(false);
+        this.showToastNotification(`Solicitud actualizada a: ${this.returnStatusLabel(targetStatus)}`, 'success');
+
+        this.returns.update(list =>
+          list.map(r => (r.id === returnId ? { ...r, status: targetStatus } : r))
+        );
+
+        if (this.currentReturnDetails()?.id === returnId) {
+          const cur = this.currentReturnDetails()!;
+          cur.status = targetStatus;
+          this.currentReturnDetails.set({ ...cur });
+        }
+      },
+      error: () => {
+        this.updatingReturnStatus.set(false);
+        this.showToastNotification('No se pudo actualizar el estado de la devolución.', 'error');
+      }
+    });
+  }
+
+  promptRejectReturn(returnId: string): void {
+    const note = prompt('Motivo del rechazo de la devolución (se registrará en auditoría):');
+    if (!note || !note.trim()) return;
+
+    this.changeReturnStatus(returnId, 'Rejected', note.trim());
+  }
+
+  promptApproveReturn(returnId: string): void {
+    const note = prompt('Instrucciones o nota de aprobación (opcional):', 'Devolución aprobada por el vendedor.') || '';
+    this.changeReturnStatus(returnId, 'Approved', note);
+  }
+
+  returnStatusLabel(status: string): string {
+    return (
+      ({
+        Requested: 'Solicitada',
+        UnderReview: 'En revisión',
+        Approved: 'Aprobada',
+        Rejected: 'Rechazada',
+        Received: 'Recibida en bodega',
+        Refunded: 'Reembolsada',
+        Closed: 'Cerrada'
+      } as Record<string, string>)[status] ?? status
+    );
+  }
+
+  // ==================== DIRECTORIO DE CLIENTES ====================
+
+  openCustomerDetail(c: AdminCustomer): void {
+    this.showCustomerDrawer.set(true);
+    this.loadingCustomerDetail.set(true);
+    this.currentCustomerDetails.set(null);
+
+    this.api.getCustomer(c.id).subscribe({
+      next: res => {
+        this.currentCustomerDetails.set(res);
+        this.loadingCustomerDetail.set(false);
+      },
+      error: () => {
+        this.loadingCustomerDetail.set(false);
+        this.showToastNotification('No se pudo cargar el expediente del cliente.', 'error');
+      }
+    });
+  }
+
+  closeCustomerDrawer(): void {
+    this.showCustomerDrawer.set(false);
+    this.currentCustomerDetails.set(null);
+  }
+
+  searchCustomersLive(): void {
+    if (!this.customerSearchText.trim()) {
+      this.api.customers().subscribe(list => this.customersList.set(list));
+      return;
+    }
+    this.api.customers(this.customerSearchText.trim()).subscribe(list => {
+      this.customersList.set(list);
+    });
+  }
+
+  viewCustomerOrder(orderNumber: string): void {
+    const ord = this.orders().find(o => o.number === orderNumber);
+    if (ord) {
+      this.closeCustomerDrawer();
+      this.openOrderDetail(ord);
+    } else {
+      this.showToastNotification(`Orden #${orderNumber} cargada en historial.`, 'info');
+    }
   }
 
   // ==================== GESTIÓN DE PRODUCTOS ====================

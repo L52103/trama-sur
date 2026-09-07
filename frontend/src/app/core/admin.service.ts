@@ -20,6 +20,105 @@ export interface AdminOrderDetail {
   address:OrderAddressDetail|null;
 }
 
+export interface AdminReturn {
+  id: string;
+  orderId: string;
+  number: string;
+  customerEmail: string;
+  status: string;
+  reason: string;
+  customerNotes: string;
+  items: number;
+  createdAt: string;
+}
+
+export interface AdminReturnItem {
+  id: string;
+  productName: string;
+  sku: string;
+  color: string;
+  size: string;
+  unitPriceClp: number;
+  quantityReturned: number;
+  originalQuantity: number;
+}
+
+export interface AdminReturnHistory {
+  action: string;
+  changesJson: string;
+  createdAt: string;
+}
+
+export interface AdminReturnDetail {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  customerEmail: string;
+  status: string;
+  reason: string;
+  customerNotes: string;
+  createdAt: string;
+  items: AdminReturnItem[];
+  history: AdminReturnHistory[];
+}
+
+export interface AdminCustomer {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  isRegistered: boolean;
+  marketingConsent: boolean;
+  marketingConsentAt: string | null;
+  createdAt: string;
+  ordersCount: number;
+  totalSpentClp: number;
+  lastOrderAt: string | null;
+}
+
+export interface CustomerAddress {
+  id: string;
+  label: string;
+  recipientName: string;
+  phone: string;
+  region: string;
+  commune: string;
+  addressLine1: string;
+  addressLine2?: string;
+  instructions?: string;
+  isDefault: boolean;
+}
+
+export interface CustomerOrderSummary {
+  id: string;
+  number: string;
+  status: string;
+  totalClp: number;
+  paidAt: string | null;
+  createdAt: string;
+  itemsCount: number;
+}
+
+export interface AdminCustomerDetail {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber?: string;
+  isRegistered: boolean;
+  marketingConsent: boolean;
+  marketingConsentAt: string | null;
+  createdAt: string;
+  lastLoginAt: string | null;
+  addresses: CustomerAddress[];
+  orders: CustomerOrderSummary[];
+  metrics: {
+    ordersCount: number;
+    totalSpentClp: number;
+    averageOrderValueClp: number;
+  };
+}
+
 export interface CreateAdminProduct {
   name:string;slug:string;categoryId:string;shortDescription:string;description:string;materials:string;careInstructions:string;audience:string;basePriceClp:number;compareAtPriceClp:number|null;metaTitle:string;metaDescription:string;imageUrl:string;imageAlt:string;
   collectionIds?:string[];
@@ -47,6 +146,16 @@ export class AdminService{
   bulkUpdateInventoryThreshold(threshold:number):Observable<void>{return this.http.put<void>(`${this.api}/inventory/threshold/bulk`, {threshold})}
   adjustInventory(inventoryItemId:string, quantityDelta:number, reason:string):Observable<any>{return this.http.post<any>(`${this.api}/inventory/adjustments`, {inventoryItemId, quantityDelta, reason, reference:''})}
   
+  returns():Observable<AdminReturn[]>{return this.http.get<AdminReturn[]>(`${this.api}/returns`)}
+  getReturn(id:string):Observable<AdminReturnDetail>{return this.http.get<AdminReturnDetail>(`${this.api}/returns/${id}`)}
+  updateReturnStatus(id:string,status:string,resolutionNote:string):Observable<void>{return this.http.put<void>(`${this.api}/returns/${id}`,{status,resolutionNote})}
+
+  customers(search?:string):Observable<AdminCustomer[]>{
+    const params = search ? `?search=${encodeURIComponent(search)}` : '';
+    return this.http.get<AdminCustomer[]>(`${this.api}/customers${params}`);
+  }
+  getCustomer(id:string):Observable<AdminCustomerDetail>{return this.http.get<AdminCustomerDetail>(`${this.api}/customers/${id}`)}
+
   getSettings():Observable<Record<string, string>>{return this.http.get<Record<string, string>>(`${this.api}/settings`)}
   saveSettings(settings:Record<string, string>):Observable<any>{return this.http.put<any>(`${this.api}/settings`, settings)}
   uploadSettingImage(file:File):Observable<{url:string}>{const fd=new FormData();fd.append('file',file);return this.http.post<{url:string}>(`${this.api}/media/upload`, fd)}

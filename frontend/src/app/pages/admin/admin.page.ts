@@ -1,4 +1,4 @@
-import { NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet, SlicePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -18,6 +18,7 @@ import {
   CreateAdminProduct
 } from '../../core/admin.service';
 import { AuthSessionService } from '../../core/auth-session.service';
+import { ContentService, HomeContent } from '../../core/content.service';
 import { clp } from '../../core/format';
 import { IconComponent } from '../../shared/icon.component';
 
@@ -31,7 +32,7 @@ const CACHE_KEY = 'trama_admin_draft_cache';
 
 @Component({
   selector: 'app-admin-page',
-  imports: [FormsModule, IconComponent, RouterLink, NgTemplateOutlet],
+  imports: [FormsModule, IconComponent, RouterLink, NgTemplateOutlet, SlicePipe],
   template: `
   <section class="admin">
     <!-- BARRA LATERAL -->
@@ -717,15 +718,190 @@ const CACHE_KEY = 'trama_admin_draft_cache';
         </section>
       }
 
-      <!-- ==================== EDITAR LANDINGPAGE ==================== -->
+      <!-- ==================== EDITAR LANDINGPAGE (CMS HUB) ==================== -->
       @else if (section() === 'Editar Landingpage') {
-        <section class="placeholder-card">
-          <span class="icon-hero">✦</span>
-          <h2>Contenido de la Portada</h2>
-          <p>
-            Edita los titulares, imágenes promocionales y anuncios destacados con guardado en borrador y previsualización en vivo.
-          </p>
-          <a class="button" routerLink="/admin/contenido/inicio">Abrir editor visual</a>
+        <section class="cms-hub-section full-page">
+          <!-- CMS HERO CALLOUT -->
+          <div class="cms-hero-banner">
+            <div class="cms-hero-content">
+              <span class="cms-chip">✦ ESTUDIO CMS EDITORIAL</span>
+              <h2>Editor Visual de la Portada</h2>
+              <p>
+                Diseña y actualiza en tiempo real los banners de carrusel, textos, vitrina de productos curados,
+                anuncios promocionales e historia de marca con previsualización responsive para móvil y escritorio.
+              </p>
+              <div class="cms-hero-actions">
+                <a class="button primary cms-launch-btn" routerLink="/admin/contenido/inicio">
+                  <span>✨</span> Abrir Estudio Visual CMS
+                </a>
+                <a href="/" target="_blank" rel="noopener" class="button secondary">
+                  <span>👁️</span> Ver Tienda Pública
+                </a>
+                <button type="button" class="button secondary" (click)="loadLandingPageInfo()">
+                  <span>↺</span> Actualizar Estado
+                </button>
+              </div>
+            </div>
+            <div class="cms-hero-preview-badge">
+              @if (homeDraft()) {
+                <div class="draft-badge-box">
+                  <span class="pulse-dot"></span>
+                  <div>
+                    <b>Borrador v{{ homeDraft()!.versionNumber }} pendiente</b>
+                    <small>Hay cambios guardados sin publicar</small>
+                  </div>
+                </div>
+              } @else {
+                <div class="draft-badge-box synced">
+                  <span class="synced-dot">✓</span>
+                  <div>
+                    <b>Portada al día</b>
+                    <small>Todo el contenido está sincronizado</small>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- MÉTRICAS DE LA LANDING PAGE -->
+          <div class="metrics cms-metrics-grid">
+            <article class="metric-card">
+              <span>Estado en Vivo</span>
+              <b class="status-live-text">● Publicada</b>
+              <small>Versión v{{ latestPublishedVersion()?.versionNumber || 1 }} en producción</small>
+            </article>
+            <article class="metric-card">
+              <span>Carrusel Hero</span>
+              <b>{{ (homeContent()?.carousel || []).length }} Slides</b>
+              <small>Banners rotativos con autoavance</small>
+            </article>
+            <article class="metric-card">
+              <span>Vitrina Destacados</span>
+              <b>{{ homeContent()?.featured?.autoSelect !== false ? 'Automática' : 'Curada (' + (homeContent()?.featured?.productIds?.length || 0) + ')' }}</b>
+              <small>{{ homeContent()?.featured?.heading || 'Esenciales' }}</small>
+            </article>
+            <article class="metric-card">
+              <span>Barra Anuncios</span>
+              <b>{{ homeContent()?.announcementActive !== false ? 'Activa' : 'Oculta' }}</b>
+              <small class="truncate-text">{{ homeContent()?.announcement || 'Sin anuncio' }}</small>
+            </article>
+          </div>
+
+          <!-- MOSAICO DE SECCIONES EDITABLES -->
+          <div class="cms-sections-grid">
+            <article class="cms-section-card" routerLink="/admin/contenido/inicio">
+              <div class="sec-card-icon">🎠</div>
+              <div class="sec-card-body">
+                <h3>Carrusel de Banners</h3>
+                <p>Configura las diapositivas principales con imágenes en alta resolución, tipografía sobria, acentos en cursiva y botones de compra.</p>
+                <div class="sec-card-meta">
+                  <span class="pill">{{ (homeContent()?.carousel || []).length }} diapositivas</span>
+                  <span class="link-arrow">Editar diapositivas →</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="cms-section-card" routerLink="/admin/contenido/inicio">
+              <div class="sec-card-icon">✨</div>
+              <div class="sec-card-body">
+                <h3>Vitrina de Destacados</h3>
+                <p>Elige qué prendas de alta confección se exhiben en la portada. Puedes seleccionar prendas específicas o dejar la selección automática.</p>
+                <div class="sec-card-meta">
+                  <span class="pill">{{ homeContent()?.featured?.autoSelect !== false ? 'Modo automático' : 'Curaduría manual' }}</span>
+                  <span class="link-arrow">Gestionar vitrina →</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="cms-section-card" routerLink="/admin/contenido/inicio">
+              <div class="sec-card-icon">📖</div>
+              <div class="sec-card-body">
+                <h3>Historia & Confección</h3>
+                <p>Comunica los valores nobles de Trama Sur: confección local, materiales nobles, huella transparente y garantía sin letra chica.</p>
+                <div class="sec-card-meta">
+                  <span class="pill">{{ (homeContent()?.story?.stats || []).length }} métricas de impacto</span>
+                  <span class="link-arrow">Editar narrativa →</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="cms-section-card" routerLink="/admin/contenido/inicio">
+              <div class="sec-card-icon">📢</div>
+              <div class="sec-card-body">
+                <h3>Barra de Anuncios</h3>
+                <p>Franja superior fija para promociones especiales como envíos gratis, plazos de cambios extendidos o avisos de temporada.</p>
+                <div class="sec-card-meta">
+                  <span class="pill">{{ homeContent()?.announcementActive !== false ? 'Visible' : 'Oculta' }}</span>
+                  <span class="link-arrow">Cambiar mensaje →</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="cms-section-card" routerLink="/admin/contenido/inicio">
+              <div class="sec-card-icon">🛡️</div>
+              <div class="sec-card-body">
+                <h3>Pilares de Confianza</h3>
+                <p>Los tres compromisos indispensables que ofrecen seguridad y tranquilidad a tus clientes antes de pagar.</p>
+                <div class="sec-card-meta">
+                  <span class="pill">{{ (homeContent()?.benefits || []).length }} beneficios</span>
+                  <span class="link-arrow">Editar pilares →</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="cms-section-card" routerLink="/admin/contenido/inicio">
+              <div class="sec-card-icon">🏷️</div>
+              <div class="sec-card-body">
+                <h3>Accesos a Categorías</h3>
+                <p>Tarjetas visuales con accesos rápidos directos a las categorías más cotizadas (Abrigos, Tops, Pantalones).</p>
+                <div class="sec-card-meta">
+                  <span class="pill">{{ (homeContent()?.categories || []).length }} categorías</span>
+                  <span class="link-arrow">Editar accesos →</span>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <!-- AUDITORÍA DE PUBLICACIONES RECIENTES -->
+          <div class="cms-history-card">
+            <div class="history-card-head">
+              <div>
+                <h3>Historial de Publicaciones</h3>
+                <p>Trazabilidad completa de cambios publicados en la tienda en vivo.</p>
+              </div>
+            </div>
+
+            @if (homeVersions().length > 0) {
+              <div class="table-container">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Versión</th>
+                      <th>Estado</th>
+                      <th>Fecha de Publicación</th>
+                      <th>Nota de Auditoría</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (v of homeVersions(); track v.id) {
+                      <tr>
+                        <td><b>v{{ v.versionNumber }}</b></td>
+                        <td>
+                          <span class="badge" [class.badge-success]="v.status === 'Published'" [class.badge-warning]="v.status === 'Draft'">
+                            {{ v.status === 'Published' ? 'Publicada en vivo' : 'Borrador' }}
+                          </span>
+                        </td>
+                        <td>{{ v.publishedAt ? (v.publishedAt | slice:0:16) : 'Pendiente' }}</td>
+                        <td>{{ v.publicationNote || 'Sin nota de publicación' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p class="empty-hint">No hay registro histórico de publicaciones guardado aún.</p>
+            }
+          </div>
         </section>
       }
 
@@ -1795,6 +1971,13 @@ const CACHE_KEY = 'trama_admin_draft_cache';
 export class AdminPage {
   private readonly api = inject(AdminService);
   private readonly session = inject(AuthSessionService);
+  private readonly cms = inject(ContentService);
+
+  readonly homeContent = signal<HomeContent | null>(null);
+  readonly homeVersions = signal<Array<{ id: string; versionNumber: number; status: string; createdByUserId?: string; publishedByUserId?: string; publishedAt?: string; publicationNote?: string }>>([]);
+  readonly homeDraft = signal<{ id: string; versionNumber: number } | null>(null);
+  readonly loadingHomeContent = signal(false);
+  readonly latestPublishedVersion = computed(() => this.homeVersions().find(v => v.status === 'Published'));
 
   readonly section = signal('Resumen');
   readonly showEditor = signal(false);
@@ -2290,6 +2473,33 @@ export class AdminPage {
 
   setSection(sec: string): void {
     this.section.set(sec);
+    if (sec === 'Editar Landingpage') {
+      this.loadLandingPageInfo();
+    }
+  }
+
+  loadLandingPageInfo(): void {
+    this.loadingHomeContent.set(true);
+    this.cms.home().subscribe({
+      next: c => {
+        this.homeContent.set(c);
+        this.loadingHomeContent.set(false);
+      },
+      error: () => this.loadingHomeContent.set(false)
+    });
+    this.cms.draft().subscribe({
+      next: r => {
+        if (r.draft) {
+          this.homeDraft.set({ id: r.draft.id, versionNumber: r.draft.versionNumber });
+        } else {
+          this.homeDraft.set(null);
+        }
+      }
+    });
+    this.cms.versions('home').subscribe({
+      next: v => this.homeVersions.set(v || []),
+      error: () => this.homeVersions.set([])
+    });
   }
 
   goToOrdersPending(): void {
